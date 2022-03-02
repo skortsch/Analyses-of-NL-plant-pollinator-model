@@ -1,0 +1,428 @@
+---
+title: Habitat heterogeneity drives structure and functioning of *in silico* plant-pollinator networks
+author: Kortsch, S^1^, Saravia, L. ^2^, Strona, G.^1^, Cirtwill, A. ^1^, Timberlake,
+  T. ^3^, Kendall, L.^4^ Memmott, J.^3^, Roslin, T.^1,5^ 
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+*Affiliations:*
+
+^1^ University of Helsinki, Finland  
+^2^ Universidad Nacional de General Sarmiento, Buenos Aires, Argentina  
+^3^ Bristol University, United Kingdom   
+^4^ University of Lund, Sweden   
+^5^ Uppsala University, Sweden  
+
+*Correspondence: susanne.kortsch@gmail.com
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load packages
+library("tidyverse") #Needed to easily summarise and analyse data 
+library("lubridate") #Getting R to agree that your data contains the dates and times
+library("bipartite")
+library("ggpubr")   #arrange plot
+library("sjPlot") #visualisaing results
+library("sjmisc")
+library("moments") #for calculating kurtosis
+library("ggeffects")
+library("showtext")#https://albert-rapp.de/post/2022-02-19-ggplot2-color-tips-from-datawrapper/?s=09
+library("thematic")
+library("MASS")
+
+```
+
+
+```{r data setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#data 
+setwd("C:/LocalData/susakort/pollinatorsNL-main_18/R_scripts") #setwd to your own directory
+vis_data<-read.csv("../Data_output/NLdata.csv", header=TRUE) #inport data
+
+vis_data<- vis_data %>% rowwise() %>% mutate(pref.diff = abs(plant.pref -  prefs_after_vis))
+
+df.vis.sum<-vis_data %>% group_by(run, seed_percent, free.dist, plant_species, pl.dens) %>%  summarise(pl.pref=mean(plant.pref), 
+number_visits = sum(number_visits), cons= sum(cons), pvis=sum(pvis), connectance=mean(conn), nestedness= mean(nest), tot.plant.dens=mean(plant.density)) 
+
+df.vis<-df.vis.sum %>% group_by(run, seed_percent) %>% summarise(pl.pref=median(pl.pref), pl.dens=median(pl.dens), 
+  number_visits = median(number_visits), cons= median(cons), 
+  pvis=median(pvis), connectance=mean(connectance), nestedness=mean(nestedness), mean.free.dist=mean(free.dist),tot.plant.dens=median(tot.plant.dens)) 
+
+df.tot.vis<-df.vis.sum %>% group_by(run, seed_percent) %>% summarise(pl.pref=median(pl.pref), pl.dens=median(pl.dens), 
+  number_visits = sum(number_visits), cons= sum(cons), 
+  pvis=sum(pvis), connectance=mean(connectance), nestedness=mean(nestedness), mean.free.dist=mean(free.dist),tot.plant.dens=median(tot.plant.dens)) 
+
+df.vis.sum.poll<-vis_data %>% group_by(run, seed_percent, pollinator_species, pl.dens) %>%  summarise(pl.pref=mean(plant.pref), 
+number_visits = sum(number_visits), cons= sum(cons), pvis=sum(pvis), connectance=mean(conn), nestedness= mean(nest), mean.diff=mean(pref.diff)) 
+
+df.vis.poll<-df.vis.sum.poll %>% group_by(run, seed_percent) %>% summarise(pl.pref=mean(pl.pref), pl.dens=mean(pl.dens), 
+  number_visits = median(number_visits), cons= median(cons), pvis=median(pvis), connectance=mean(connectance), nestedness=mean(nestedness), pref.diff=mean(mean.diff))
+
+#visit per plant
+vis.per.plant<-vis_data %>% group_by(run, seed_percent, conn, nest, plant_species) %>% summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pl.no=mean(plant.density))
+
+tot.vis<-vis.per.plant %>% group_by(run, seed_percent, connectance=conn, nest) %>% summarize(sum.vis = sum(number_visits), sum.cons = sum(cons), sum.pvis = sum(pvis), pl.no=sum(pl.no))
+
+#rel visit per plant
+rel.vis<-vis.per.plant %>% inner_join(vis.per.plant) %>% mutate(rel.vis=number_visits/pl.no, rel.cons=cons/pl.no, rel.pvis=pvis/pl.no)
+
+#rel visit per plant
+rel.vis<-tot.vis %>% inner_join(tot.vis) %>% mutate(rel.vis=sum.vis/pl.no, rel.cons=sum.cons/pl.no, rel.pvis=sum.pvis/pl.no)
+
+
+```
+
+
+```{r plot1, echo=FALSE, message=FALSE, results='hide', fig.keep='all', fig.height=4, fig.width=7, fig.align = 'center'}
+
+glm.seed.conn_1<-glm(round(number_visits) ~ seed_percent*connectance, data=df.vis, family=poisson())
+
+#Show overdispersion
+#plot(log(fitted(glm.seed.conn_1)),log((df.vis$number_visits-fitted(glm.seed.conn_1))^2),xlab=expression(hat(mu)),ylab=expression((y-hat(mu))^2),pch=20,col="blue")
+#abline(0,1) ## 'variance = mean' line
+
+summary(glm.seed.conn_1)
+
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.1$y <- predict(glm.seed.conn_1, pred.1, type="response")
+plot_glm.1<-ggplot(pred.1, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Visitation rate")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_1$null.deviance
+dev.resid <- glm.seed.conn_1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+glm.seed.conn_2<-glm(round(cons) ~ seed_percent*connectance, data=df.vis, family=poisson())
+
+#Show overdispersion
+#plot(log(fitted(glm.seed.conn_2)),log((df.vis$cons-fitted(glm.seed.conn_2))^2),xlab=expression(hat(mu)),ylab=expression((y-hat(mu))^2), pch=20,col="blue")
+#abline(0,1) ## 'variance = mean' line
+
+summary(glm.seed.conn_2)
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.2$y <- predict(glm.seed.conn_2, pred.2, type="response")
+plot_glm.2<-ggplot(pred.2, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Consecutive visits")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_2$null.deviance
+dev.resid <- glm.seed.conn_2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+glm.seed.conn_3<-glm(round(pvis) ~ seed_percent*connectance, data=df.vis, family=poisson())
+
+#Show overdispersion
+#plot(log(fitted(glm.seed.conn_3)),log((df.vis$cons-fitted(glm.seed.conn_3))^2),xlab=expression(hat(mu)),ylab=expression((y-hat(mu))^2), pch=20,col="blue")
+#abline(0,1) ## 'variance = mean' line
+
+summary(glm.seed.conn_3)
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.3$y <- predict(glm.seed.conn_3, pred.3, type="response")
+plot_glm.3<-ggplot(pred.3, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Expected pollination success")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_3$null.deviance
+dev.resid <- glm.seed.conn_3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+
+dev.explained
+
+ggarrange(plot_glm.1, plot_glm.2, plot_glm.3, labels = c("A", "B", "C"), ncol = 3, common.legend = TRUE)
+
+```
+
+##### Glm possion family median visitation rates (df.vis)
+
+```{r plot2, echo=FALSE, message=FALSE, results='hide', fig.keep='all', fig.height=4, fig.width=7, fig.align = 'center'}
+
+nb.seed.conn_1<-glm.nb(formula = round(number_visits) ~ seed_percent*connectance, data = df.vis, link = log)
+summary(nb.seed.conn_1)
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.1$y <- predict(nb.seed.conn_1, pred.1, type="response")
+plot_nb.1<-ggplot(pred.1, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Visitation rate")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.conn_1$null.deviance
+dev.resid <- nb.seed.conn_1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+#par(mfrow=c(1,2))
+#hist(round(df.vis$number_visits), main="Observed")
+#hist(rnbinom(n = 1149, size = nb.seed.conn_1$theta, mu = exp(coef(nb.seed.conn_1)[1])), main="Simulated")
+
+nb.seed.conn_2<-glm.nb(round(cons) ~ seed_percent*connectance, data=df.vis,link = log)
+summary(nb.seed.conn_2)
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.2$y <- predict(nb.seed.conn_2, pred.2, type="response")
+plot_nb.2<-ggplot(pred.2, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Consecutive visits")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.conn_2$null.deviance
+dev.resid <- nb.seed.conn_2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.conn_3<-glm.nb(round(pvis) ~ seed_percent*connectance, data=df.vis,link = log)
+summary(nb.seed.conn_3)
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.3$y <- predict(nb.seed.conn_3, pred.3, type="response")
+plot_nb.3<-ggplot(pred.3, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Expected pollination success")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.conn_3$null.deviance
+dev.resid <- nb.seed.conn_3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+
+dev.explained
+
+ggarrange(plot_nb.1, plot_nb.2, plot_nb.3, labels = c("A", "B", "C"), ncol = 3, common.legend = TRUE)
+
+```
+
+##### Glm negaitve binomial distibution median visitation rates (df.vis)
+
+```{r plot3, echo=FALSE, message=FALSE, results='hide', fig.keep='all', fig.height=4, fig.width=7, fig.align = 'center'}
+
+#https://www.dataquest.io/blog/tutorial-poisson-regression-in-r/
+#mean(tot.vis$sum.vis)
+#var(tot.vis$sum.vis) #data is overdispersed
+
+glm.seed.conn_1<-glm(round(sum.vis) ~ seed_percent*connectance, data=tot.vis, family=poisson())
+summary(glm.seed.conn_1)
+
+#summary(mod1_nb <- glm.nb(round(sum.vis) ~ seed_percent*connectance, data=tot.vis, init.theta = 0.9000852793, link = log))
+#sim_mod1_nb <- simulateResiduals(mod1_nb, refit=T, n=99)
+#summary(mod1_nb <- glmer(round(sum.vis) ~ seed_percent*connectance + (1|INDEX), family=poisson, data=tot.vis))
+
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.1$y <- predict(glm.seed.conn_1, pred.1, type="response")
+plot_glm.1<-ggplot(pred.1, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Visitation rate")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_1$null.deviance
+dev.resid <- glm.seed.conn_1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+glm.seed.conn_2<-glm(round(sum.cons) ~ seed_percent*connectance, data=tot.vis, family=poisson())
+summary(glm.seed.conn_2)
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.2$y <- predict(glm.seed.conn_2, pred.2, type="response")
+plot_glm.2<-ggplot(pred.2, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Consecutive visits")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_2$null.deviance
+dev.resid <- glm.seed.conn_2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+glm.seed.conn_3<-glm(round(sum.pvis) ~ seed_percent*connectance, data=tot.vis, family=poisson())
+summary(glm.seed.conn_3)
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.3$y <- predict(glm.seed.conn_3, pred.3, type="response")
+plot_glm.3<-ggplot(pred.3, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Expected pollination success")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_3$null.deviance
+dev.resid <- glm.seed.conn_3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+
+ggarrange(plot_glm.1, plot_glm.2, plot_glm.3, labels = c("A", "B", "C"), ncol = 3, common.legend = TRUE)
+
+```
+##### Glm possion family total visitation rates (df.vis)
+
+```{r plot4, echo=FALSE, message=FALSE, results='hide', fig.keep='all', fig.height=4, fig.width=7, fig.align = 'center'}
+
+#https://www.dataquest.io/blog/tutorial-poisson-regression-in-r/
+#mean(tot.vis$sum.vis)
+#var(tot.vis$sum.vis) #data is overdispersed
+
+nb.seed.conn_1<-glm.nb(round(sum.vis) ~ seed_percent*connectance, data=tot.vis,  link = log) #+offset(log(pl.no))
+summary(nb.seed.conn_1)
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.1$y <- predict(nb.seed.conn_1, pred.1, type="response")
+plot_nb.1<-ggplot(pred.1, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Visitation rate")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.conn_1$null.deviance
+dev.resid <- nb.seed.conn_1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.conn_1$deviance / nb.seed.conn_1$df.residual
+
+nb.seed.conn_2<-glm.nb(round(sum.cons) ~ seed_percent*connectance, data=tot.vis,  link = log)#+offset(log(pl.no))
+summary(nb.seed.conn_2)
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.2$y <- predict(nb.seed.conn_2, pred.2, type="response")
+nb_plot_.2<-ggplot(pred.2, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Consecutive visits")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.conn_2$null.deviance
+dev.resid <- nb.seed.conn_2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.conn_3<-glm.nb(round(sum.pvis) ~ seed_percent*connectance, data=tot.vis,  link = log) #+offset(log(pl.no))
+summary(nb.seed.conn_3)
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1))
+pred.3$y <- predict(nb.seed.conn_3, pred.3, type="response")
+plot_nb.3<-ggplot(pred.3, aes(x=seed_percent,y=y,color=factor(connectance),group=connectance))+geom_line()+ 
+theme_light()+  ylab("Expected pollination success")+xlab("Seed percent") +labs(col = "Connectance") +theme(legend.position = "none")   
+
+dev.null <- glm.seed.conn_3$null.deviance
+dev.resid <- glm.seed.conn_3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+
+ggarrange(plot_nb.1, plot_nb.2, plot_nb.3, labels = c("A", "B", "C"), ncol = 3, common.legend = TRUE)
+
+```
+
+##### Glm negative bionomial distribution and total visitation rates (df.vis)
+
+```{r plot5, echo=FALSE, message=FALSE, results='hide', fig.keep='all', fig.height=4, fig.width=7, fig.align = 'center'}
+
+#https://www.dataquest.io/blog/tutorial-poisson-regression-in-r/
+#mean(tot.vis$sum.vis)
+#var(tot.vis$sum.vis) #data is overdispersed
+
+nb.seed.nest_1<-glm.nb(round(sum.vis) ~ seed_percent*nest, data=tot.vis,  link = log) #+offset(log(pl.no))
+summary(nb.seed.nest_1)
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), nest=c(0, 20, 40, 60, 80))
+pred.1$y <- predict(nb.seed.nest_1, pred.1, type="response")
+plot_nb.1<-ggplot(pred.1, aes(x=seed_percent,y=y,color=factor(nest),group=nest))+geom_line()+ 
+theme_light()+  ylab("Visitation rate")+xlab("Seed percent") +labs(col = "nest") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.nest_1$null.deviance
+dev.resid <- nb.seed.nest_1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+#nb.seed.nest_1$deviance / nb.seed.nest_1$df.residual### no overdispersion
+
+nb.seed.nest_2<-glm.nb(round(sum.cons) ~ seed_percent*nest, data=tot.vis,  link = log)#+offset(log(pl.no))
+summary(nb.seed.nest_2)
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), nest=c(0, 20, 40, 60, 80))
+pred.2$y <- predict(nb.seed.nest_2, pred.2, type="response")
+nb_plot_.2<-ggplot(pred.2, aes(x=seed_percent,y=y,color=factor(nest),group=nest))+geom_line()+ 
+theme_light()+  ylab("Consecutive visits")+xlab("Seed percent") +labs(col = "nest") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.nest_2$null.deviance
+dev.resid <- nb.seed.nest_2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.nest_3<-glm.nb(round(sum.pvis) ~ seed_percent*nest, data=tot.vis,  link = log) #+offset(log(pl.no))
+summary(nb.seed.nest_3)
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), nest=c(0, 20, 40, 60, 80))
+pred.3$y <- predict(nb.seed.nest_3, pred.3, type="response")
+plot_nb.3<-ggplot(pred.3, aes(x=seed_percent,y=y,color=factor(nest),group=nest))+geom_line()+ 
+theme_light()+  ylab("Expected pollination success")+xlab("Seed percent") +labs(col = "nest") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.nest_3$null.deviance
+dev.resid <- nb.seed.nest_3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained 
+
+ggarrange(plot_nb.1, plot_nb.2, plot_nb.3, labels = c("A", "B", "C"), ncol = 3, common.legend = TRUE)
+
+```
+
+##### Glm negative bionomial distribution total visitation rates (df.vis)
+
+
+```{r plot8, echo=FALSE, message=FALSE, results='hide', fig.keep='all',fig.height=7, fig.width=7, fig.align = 'center'}
+
+nb.seed.soc1<-glm.nb(round(number_visits) ~ seed_percent*factor(pol.soc), data=vis_data, link=log)
+summary(nb.seed.soc1)
+pred.seed.soc1 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.soc=c(0,1,2,3))
+pred.seed.soc1$y <- predict(nb.seed.soc1, pred.seed.soc1, type="response")
+plot__nb.seed.soc1<-ggplot(pred.seed.soc1,aes(x=seed_percent,y=y,color=factor(pol.soc),group=pol.soc))+geom_line()+ theme_light()+  ylab("Visitation rate")+xlab("seed perecent") +labs(col = "Sociality") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.soc1$null.deviance
+dev.resid <- nb.seed.soc1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.soc2<-glm.nb(round(cons) ~ seed_percent*factor(pol.soc), data=vis_data, link=log)
+summary(nb.seed.soc2)
+pred.seed.soc2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.soc=c(0,1,2,3))
+pred.seed.soc2$y <- predict(nb.seed.soc2, pred.seed.soc2, type="response")
+plot__nb.seed.soc2<-ggplot(pred.seed.soc2,aes(x=seed_percent,y=y,color=factor(pol.soc),group=pol.soc))+geom_line()+ theme_light()+  ylab("Consecutive vistits")+xlab("seed perecent") +labs(col = "Sociality") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.soc2$null.deviance
+dev.resid <- nb.seed.soc2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.soc3<-glm.nb(round(pvis) ~ seed_percent*factor(pol.soc), data=vis_data, link=log)
+summary(nb.seed.soc3)
+pred.seed.soc3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.soc=c(0,1,2,3))
+pred.seed.soc3$y <- predict(nb.seed.soc3, pred.seed.soc3, type="response")
+plot__nb.seed.soc3<-ggplot(pred.seed.soc3,aes(x=seed_percent,y=y,color=factor(pol.soc),group=pol.soc))+geom_line()+ theme_light()+  ylab("Expected visits")+xlab("seed perecent") +labs(col = "Sociality") +theme(legend.position = "none")   
+
+dev.null <- nb.seed.soc3$null.deviance
+dev.resid <- nb.seed.soc3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+ggarrange(plot__nb.seed.soc1, plot__nb.seed.soc2, plot__nb.seed.soc3,  labels = c("A", "B", "C"), ncol = 3, common.legend = TRUE)
+
+```
+
+
+```{r plot10, echo=FALSE, message=FALSE, results='hide', fig.keep='all', fig.height=7, fig.width=4, fig.align = 'center'}
+
+nb.seed.soc.bs1<-glm.nb(round(number_visits) ~ seed_percent*factor(pol.soc)*pol.bm, data=vis_data, link = log)
+summary(nb.seed.soc.bs1)
+pred.seed.soc.bs1 <- expand.grid(seed_percent=seq(0.00001,1,0.0001), pol.soc=c(0,1,2,3), pol.bm=c(1,4,8))
+pred.seed.soc.bs1$y <- predict(nb.seed.soc.bs1, pred.seed.soc.bs1, type="response")
+plot__nb.seed.soc.bs1<-ggplot(pred.seed.soc.bs1,aes(x=seed_percent,y=y,color=factor(pol.soc),group=pol.soc)) +geom_line()+  facet_grid(~pol.bm,labeller ="label_both") + theme_light()+  ylab("Visitation rate")+xlab("seed_percent") +labs(col = "pol.soc") +theme(strip.text.x = element_text(size = 12))
+
+dev.null <- nb.seed.soc.bs1$null.deviance
+dev.resid <- nb.seed.soc.bs1$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.soc.bs1$deviance / nb.seed.soc.bs1$df.residual
+
+nb.seed.soc.bs2<-glm.nb(round(cons) ~ seed_percent*factor(pol.soc)*pol.bm, data=vis_data, link = log)
+summary(nb.seed.soc.bs2)
+pred.seed.soc.bs2 <- expand.grid(seed_percent=seq(0.00001,1,0.0001), pol.soc=c(0,1,2,3), pol.bm=c(1,4,8))
+pred.seed.soc.bs2$y <- predict(nb.seed.soc.bs2, pred.seed.soc.bs2, type="response")
+plot__nb.seed.soc.bs2<-ggplot(pred.seed.soc.bs2,aes(x=seed_percent,y=y,color=factor(pol.soc),group=pol.soc)) +geom_line()+  facet_grid(~pol.bm,labeller ="label_both") + theme_light()+  ylab("Consecutive visits")+xlab("seed_percent") +labs(col = "pol.soc") +theme(strip.text.x = element_text(size = 12))
+
+dev.null <- nb.seed.soc.bs2$null.deviance
+dev.resid <- nb.seed.soc.bs2$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+nb.seed.soc.bs3<-glm.nb(round(pvis) ~ seed_percent*factor(pol.soc)*pol.bm, data=vis_data, link = log)
+summary(nb.seed.soc.bs3)
+pred.seed.soc.bs3 <- expand.grid(seed_percent=seq(0.00001,1,0.0001), pol.soc=c(0,1,2,3), pol.bm=c(1,4,8))
+pred.seed.soc.bs3$y <- predict(nb.seed.soc.bs3, pred.seed.soc.bs3, type="response")
+plot__nb.seed.soc.bs3<-ggplot(pred.seed.soc.bs3,aes(x=seed_percent,y=y,color=factor(pol.soc),group=pol.soc)) +geom_line()+  facet_grid(~pol.bm,labeller ="label_both") + theme_light()+  ylab("Expected visits")+xlab("seed_percent") +labs(col = "pol.soc") +theme(strip.text.x = element_text(size = 12))
+
+dev.null <- nb.seed.soc.bs3$null.deviance
+dev.resid <- nb.seed.soc.bs3$deviance
+dev.explained <- (dev.null - dev.resid)/dev.null*100
+dev.explained
+
+ggarrange(plot__nb.seed.soc.bs1, plot__nb.seed.soc.bs2, plot__nb.seed.soc.bs3,  labels = c("A", "B", "C"), nrow = 3, common.legend = TRUE)
+
+```
+
+
