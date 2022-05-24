@@ -45,7 +45,7 @@ tot.vis.plant<-vis.per.plant %>% group_by(run, seed_percent,connectance) %>%
 
 
 mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent,connectance) %>% 
-  summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pl.no=mean(pl.no), area.size=mean(free.dist))
+  summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens), area.size=mean(free.dist))
 
 #NOTE!!! for some strange reason one run is duplicated in the mean and tot vis per plant. 
 #I have not been able to detect the reason yet. the input variables do not contain duplicates, I have checked.
@@ -62,7 +62,7 @@ which(duplicated(mean.vis.plant$run))
 #head(cbind(mean.vis.plant$seed_percent, log(mean.vis.plant$seed_percent+1), log(mean.vis.plant$seed_percent)))
 
 
-nb.seed.conn_1<-glm.nb(round(number_visits) ~ log(seed_percent)*connectance+offset(log(pl.no)), data=mean.vis.plant,  link = log) 
+nb.seed.conn_1<-glm.nb(round(number_visits) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log) 
 summary(nb.seed.conn_1)
 
 #peudo R2
@@ -72,7 +72,7 @@ r2_nagelkerke(nb.seed.conn_1)
 plot(nb.seed.conn_1)
 
 #predict
-pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1), pl.no= mean(mean.vis.plant$pl.no))
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1), mean.plant.dens= mean(mean.vis.plant$mean.plant.dens))
 pred.1
 pred.1$y <- predict(nb.seed.conn_1, pred.1, type="response")
 pred.1$se <- predict(nb.seed.conn_1, pred.1, type="response", se.fit = TRUE)$se
@@ -101,14 +101,14 @@ plot_nb.1
 #dev.explained
 
 #consecutive visits
-nb.seed.conn_2<-glm.nb(round(cons) ~ log(seed_percent)*connectance+offset(log(pl.no)), data=mean.vis.plant,  link = log)
+nb.seed.conn_2<-glm.nb(round(cons) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log)
 summary(nb.seed.conn_2)
 
 #check residuals
-plot(nb.seed.conn_2)
+#plot(nb.seed.conn_2)
 
 #predict
-pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1),  pl.no= mean(mean.vis.plant$pl.no))
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1),  mean.plant.dens= mean(mean.vis.plant$mean.plant.dens))
 pred.2$y <- predict(nb.seed.conn_2, pred.2, type="response")
 pred.2$se <- predict(nb.seed.conn_2, pred.2, type="response", se.fit = TRUE)$se
 
@@ -133,14 +133,14 @@ plot_nb.2
 #dev.explained
 
 ### expected pollination visits
-nb.seed.conn_3<-glm.nb(round(pvis) ~ log(seed_percent)*connectance+offset(log(pl.no)), data=mean.vis.plant,  link = log)
+nb.seed.conn_3<-glm.nb(round(pvis) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log)
 summary(nb.seed.conn_3)
 
 #check residuals
-plot(nb.seed.conn_3)
+#plot(nb.seed.conn_3)
 
 #predict
-pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1), pl.no= mean(mean.vis.plant$pl.no))
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1), mean.plant.dens= mean(mean.vis.plant$mean.plant.dens))
 pred.3$y <- predict(nb.seed.conn_3, pred.3, type="response")
 pred.3$se <- predict(nb.seed.conn_3, pred.3, type="response", se.fit = TRUE)$se
 
@@ -158,6 +158,7 @@ plot_nb.3<-ggplot(pred.3, aes(x=log(seed_percent),y=y,color=factor(connectance),
   theme(panel.border = element_rect(fill=NA, color="black", size=0.5, linetype="solid"))+
   scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
   theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12)) 
+plot_nb.3
 
 #dev.null <- nb.seed.conn_3$null.deviance
 #dev.resid <- nb.seed.conn_3$deviance
@@ -172,6 +173,10 @@ ggsave(paste0(dirF, "Fig1_mean_logged.png"),width=10, height = 6, units="in", dp
 #GLM output table
 mod_tab_1<-tab_model(nb.seed.conn_1, nb.seed.conn_2, nb.seed.conn_3)
 mod_tab_1
+
+tab_model(nb.seed.conn_1)
+tab_model(nb.seed.conn_2)
+tab_model(nb.seed.conn_3)
 
 
 #####################
@@ -307,7 +312,7 @@ plot.pvis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links)),gr
 plot.pvis2
 
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE)
-annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("Habitat plant clumpiness/mixing"))
+annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing (log)"))
 ggsave(paste0(dirF, "Fig_glmm_pol_dens_all_log.png"),width=8, height = 12, units="in", dpi=600 ) 
 
 
@@ -315,6 +320,9 @@ tab_model(mod.vis2)
 tab_model(mod.cons2)
 tab_model(mod.pvis2)
 
+library("webshot")
+# first save table to html file
+tab_model(lme1, file = "plot.html")
 
 ############################################################################################################
 
