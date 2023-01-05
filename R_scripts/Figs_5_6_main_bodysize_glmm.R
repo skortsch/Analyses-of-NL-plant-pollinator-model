@@ -419,10 +419,10 @@ colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
                                 
 #plot1<-ggplot(pred,aes(x=seed_percent,y=y,color=factor(pol.bm), linetype=factor(pol.bm), group=pol.bm, size=2))+
                                 
-plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.bm)), linetype=factor(pol.bm), group=pol.bm)+
+plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.bm), linetype=factor(pol.bm)))+
   theme_bw()+ geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
   scale_color_manual(values = c("#0072B2","#E69F00", "#009E73", "#CC79A7"))+
-  geom_line(size=1)+ ylab("Visitation rate")+xlab("") +labs(col ="ITD") +
+  geom_line(size=1)+ ylab("Visitation rate")+xlab("") +labs(col ="ITD",linetype = "ITD") +
   theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(margin = margin(r = 12)))+
   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
@@ -442,10 +442,10 @@ pred$se <- predict(mod.cons2, pred, type="response", se.fit = TRUE)$se
 pred$lower <- pred$y - 1.96 * pred$se
 pred$upper <- pred$y + 1.96 * pred$se
 
-plot.cons2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.bm)),group=pol.bm)+
+plot.cons2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.bm),linetype=factor(pol.bm)))+
   theme_bw()+ geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
   scale_color_manual(values = c("#0072B2","#E69F00", "#009E73", "#CC79A7"))+
-  geom_line(size=1)+ylab("Consecutive visits")+xlab("") +labs(col ="ITD") +
+  geom_line(size=1)+ylab("Consecutive visits")+xlab("") +labs(col ="ITD",linetype="ITD") +
   theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(margin = margin(r = 10)))+
   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
@@ -464,10 +464,10 @@ pred3$se <- predict(mod.pvis2, pred, type="response", se.fit = TRUE)$se
 pred3$lower <- pred3$y - 1.96 * pred3$se
 pred3$upper <- pred3$y + 1.96 * pred3$se
 
-plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.bm)),group=pol.bm)+
+plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.bm),linetype=factor(pol.bm)))+
   theme_bw()+ geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
   scale_color_manual(values = c("#0072B2","#E69F00", "#009E73", "#CC79A7"))+
-  geom_line(size=1)+ylab("Expected number of plants pollinated")+xlab("") +labs(col ="ITD") +
+  geom_line(size=1)+ylab("Expected number of plants pollinated")+xlab("") +labs(col ="ITD",linetype="ITD") +
   theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(margin = margin(r = 10)))+
   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
