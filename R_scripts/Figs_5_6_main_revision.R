@@ -77,15 +77,15 @@ mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.links+(1|run),
                    data=vis.per.plant)
 
 #checks model fit
-check_model(mod.vis2)
+#check_model(mod.vis2)
 
 #dharma residual checks
-res_vis<- simulateResiduals(mod.vis2, 200)
-plot(res_vis)#tests if the overall distribution conforms to expectations
-testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
-testResiduals(res_vis)
-testUniformity(res_vis)
-testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+#res_vis<- simulateResiduals(mod.vis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
 
 
 #consecutive visit
@@ -95,15 +95,15 @@ mod.cons2<-glmmTMB(round(cons)~log(seed_percent)*pol.links+(1|run),
                    data=vis.per.plant)
 
 #checks model fit
-check_model(mod.cons2)
+#check_model(mod.cons2)
 
 #dharma residual checks
-res_vis<- simulateResiduals(mod.cons2, 200)
-plot(res_vis)#tests if the overall distribution conforms to expectations
-testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
-testResiduals(res_vis)
-testUniformity(res_vis)
-testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+#res_vis<- simulateResiduals(mod.cons2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
 
 
 #expected pollination visits
@@ -114,15 +114,15 @@ mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links+(1|run),
 
 
 #checks model fit
-check_model(mod.pvis2)
+#check_model(mod.pvis2)
 
 #dharma residual checks
-res_vis<- simulateResiduals(mod.pvis2, 200)
-plot(res_vis)#tests if the overall distribution conforms to expectations
-testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
-testResiduals(res_vis)
-testUniformity(res_vis)
-testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+#res_vis<- simulateResiduals(mod.pvis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
 
 ### plot the figures
 #visitation rate
@@ -204,7 +204,7 @@ plot.pvis
 
 Fig_glmm_pol_dens<-ggarrange(plot.vis, plot.cons, plot.pvis, widths = c(6, 6, 6), labels = c("a", "b", "c"), ncol = 3, common.legend = TRUE)
 annotate_figure(Fig_glmm_pol_dens,bottom = text_grob("plant intermixing [log]", size=14))
-ggsave(paste0(dirF, "Fig5_glmm_poll.degree_1st_sub_no_offset.png"),width=10, height = 6, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "Fig5_glmm_poll.degree_ex_2.png"),width=10, height = 6, units="in", dpi=600 ) 
 
 
 tab_model(mod.vis2)
@@ -360,7 +360,7 @@ plot.pvis2
 
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE)
 annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
-ggsave(paste0(dirF, "Fig_glmm_pol_dens_all_log.png"),width=8, height = 12, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "Fig_glmm_pol_dens_ex_2.png"),width=8, height = 12, units="in", dpi=600 ) 
 
 
 tab_model(mod.vis2)
