@@ -4,11 +4,11 @@
 # Susanne Kortsch, Leonardo Saravia, Alyssa Cirtwill, Thomas Timberlake, Jane Memmott, Liam Kendall, Tomas Roslin, and Giovanni Strona
 
 #load packages
+library("MASS")      #nb.glm function
 library("tidyverse") #needed to easily summarise, analyse, and visualise data 
 library("ggpubr")    #arrange plot
 library("sjPlot")    #visualizing results, making tables with model output
 library("ggeffects")
-library("MASS")      #nb.glm function
 library("DHARMa")    #check residuals
 library("glmmTMB")   #glmm 
 library("jtools")
@@ -16,14 +16,14 @@ library("fmsb")
 library("performance") #check residuals, calculates pseudo R-squared values
 
 #Figure dir 
-dirF<-"../Figures/"
+dirF<-"Figures/"
 
 #Working Dir
 #setwd("C:/LocalData/susakort/abm pollination/Scripts_1st_submission/R_scripts") #setwd to your own directory
 setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses/Data")
 
 #data for experiment 2: 7 habitats and random nest location
-vis_data<-read.csv("../Data/NLdata_ex_2.csv", header=TRUE) #import data
+vis_data<-read.csv("Data/NLdata_ex_2.csv", header=TRUE) #import data
 
 #1st submission
 #vis_data<-read.csv("../Data/NLdata.csv", header=TRUE) #import data
@@ -157,6 +157,7 @@ pred$lower <- pred$y - 1.96 * pred$se
 pred$upper <- pred$y + 1.96 * pred$se
 
 #"#00AFBB",
+
 plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
   theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
   scale_color_manual(values = c("#E69F00", "purple", "#000000"))+
@@ -168,7 +169,7 @@ plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linet
   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
   strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
   theme(strip.text.x = element_text(size = 14, color = "black"))+
-  theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
   theme(legend.position="top")
 plot.vis
 
@@ -194,7 +195,7 @@ plot.cons<-ggplot(pred2,aes(x=log(seed_percent),y=y, color=factor(pol.links),lin
   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
         strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
   theme(strip.text.x = element_text(size = 14, color = "black"))+
-  theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95",  linetype="solid"))+
   theme(legend.position="top")
 plot.cons
 
@@ -220,7 +221,7 @@ plot.pvis<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links),lin
   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
         strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
   theme(strip.text.x = element_text(size = 14, color = "black"))+
-  theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
   theme(legend.position="top")
 plot.pvis
 
@@ -320,7 +321,7 @@ plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links), lin
         strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
   theme(strip.text.x = element_text(size = 12, color = "black"))+
   #theme(strip.text.y = element_text(size = 12, color = "black"))+
-  theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
   theme(legend.position="top")+
   theme(axis.text.x=element_blank())
 plot.vis2
@@ -348,7 +349,7 @@ plot.cons2<-ggplot(pred2,aes(x=log(seed_percent),y=y, color=factor(pol.links), l
         strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
   theme(strip.text.x = element_text(size = 12, color = "black"))+
   #theme(strip.text.y = element_text(size = 12, color = "black"))+
-  theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
   theme(legend.position="top")+
   theme(axis.text.x=element_blank())
 plot.cons2
@@ -367,7 +368,7 @@ plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links), l
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
   scale_color_manual(values = c("#E69F00", "purple", "#000000"))+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  geom_line(size=1.2)+ylab("Expected number of plants pollinated")+xlab("") +labs(col ="poll links", linetype="poll links") +
+  geom_line(size=1.2)+ylab("Expected no. of plants pollinated")+xlab("") +labs(col ="poll links", linetype="poll links") +
   theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
@@ -376,11 +377,12 @@ plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links), l
         strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
   theme(strip.text.x = element_text(size = 12, color = "black"))+
   #theme(strip.text.y = element_text(size = 12, color = "black"))+
-  theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
   theme(legend.position="top")
 plot.pvis2
 
-Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE)
+Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), 
+                             labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-1,heights=c(1,1,1.2))
 annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
 ggsave(paste0(dirF, "Fig_glmm_pol_dens_ex_2.png"),width=8, height = 12, units="in", dpi=600 ) 
 
