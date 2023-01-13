@@ -382,7 +382,7 @@ plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links), l
 plot.pvis2
 
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), 
-                             labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-1,heights=c(1,1,1.2))
+                             labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-4,heights=c(1,1,1.2))
 annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
 ggsave(paste0(dirF, "Fig_glmm_pol_dens_ex_2.png"),width=8, height = 12, units="in", dpi=600 ) 
 
