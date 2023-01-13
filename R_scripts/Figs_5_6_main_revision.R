@@ -37,22 +37,25 @@ plant.l<- vis_data %>% arrange (run, plant_species) %>%  group_by(run, seed_perc
 poll.l<- vis_data %>%  arrange (run, plant_species) %>%  group_by(run, seed_percent, pollinator_species) %>% mutate(pol.links = n())
 plant.l_2<- plant.l %>% inner_join(poll.l)
 
+#range(as.vector(plant.l_2[which(plant.l_2$pol.links==6),5]))
+
 vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
-summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
 
 vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, plant_species,  connectance=conn, pl.dens, pol.bm) %>% 
-  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
 
 ###mean visits per simulation across plants are used for the GLM 
 
 mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
-summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pvis_prefs = mean(pvis_prefs), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
 
 #####################
 
 # ONLY FOR 1st submission vis_data file, there was a duplicate in this file, remove it
 #However, the simulation is not duplicated in the input files
 #to solve this, I took the mean of the duplicated rows to arrive at an overall mean
+
 which(duplicated(mean.vis.plant$run))
 mean.vis.plant[1564,]
 mean.vis.plant[1565,] #due to time constraints, I delete this line in the data until we have figured out why it is duplicated.
@@ -124,9 +127,28 @@ mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links+(1|run),
 #testUniformity(res_vis)
 #testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
 
+mod.pvis.prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+
+#checks model fit
+#check_model(mod.pvis2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.pvis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+
 ### plot the figures
 #visitation rate
 #pl.dens=mean(vis.per.plant$pl.dens),
+mod.vis2<-mod.pvis.prefs2
 pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(2,4,6))
 pred$run<-NA
 pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
