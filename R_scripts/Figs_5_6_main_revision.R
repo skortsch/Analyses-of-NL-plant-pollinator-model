@@ -161,7 +161,8 @@ plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linet
   theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
   scale_color_manual(values = c("#E69F00", "purple", "#000000"))+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  geom_line(size=1.2)+ylab("Visitation rate")+xlab("") +labs(col ="poll links", linetype="poll links") +
+  #geom_line(size=1.2)+ylab("Visitation rate")+xlab("") +labs(col ="poll links", linetype="poll links") +
+  geom_line(size=1.2)+ylab("expected pollination based on prefs")+xlab("") +labs(col ="poll links", linetype="poll links") +
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) +
   theme(axis.title.y = element_text(size=14,margin = margin(r = 10)))+
@@ -171,6 +172,8 @@ plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linet
   theme(strip.background = element_rect(color="grey0", fill="grey95", linewidth=0.5, linetype="solid"))+
   theme(legend.position="top")
 plot.vis
+
+ggsave(paste0(dirF, "expected_poll_prefs.png"),width=10, height = 6, units="in", dpi=600 ) 
 
 
 #consecutive visits
