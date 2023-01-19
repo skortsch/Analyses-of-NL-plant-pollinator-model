@@ -19,10 +19,10 @@ library("performance") #check residuals, calculates pseudo R-squared values
 dirF<-"../Figures/"
 
 #Working Dir
-setwd("C:/LocalData/susakort/abm pollination/Scripts_1st_submission/R_scripts") #setwd to your own directory
+#setwd("C:/LocalData/susakort/abm pollination/Scripts_1st_submission/R_scripts") #setwd to your own directory
 
 #data 
-vis_data<-read.csv("../Data/NLdata.csv", header=TRUE) #import data
+#vis_data<-read.csv("../Data/NLdata.csv", header=TRUE) #import data
 
 ##########################################################################################################################
 #Process vis_data
@@ -38,12 +38,16 @@ plant.l_2<- plant.l %>% inner_join(poll.l)
 vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
   summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis),  pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
 
-vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, plant_species,  pollinator_species, connectance=conn, pl.dens, pol.bm) %>% 
-  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, plant_species,  pollinator_species, connectance=conn, pl.dens, pol.bm, pol.soc) %>% 
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links)) 
 
-
-
+no.plants.vis<-vis.per.poll %>%  group_by(run, seed_percent, pollinator_species) %>% filter(number_visits > 0) %>% mutate(pl.no.vis=n_distinct(plant_species))
+#%>% filter(number_visits > 0)
+no.plants.vis<- no.plants.vis %>% arrange (run, pollinator_species) %>% group_by(run, seed_percent, pollinator_species, pol.bm, pol.soc) %>%  summarize(pl.no.vis = mean(pl.no.vis))
+write.csv(no.plants.vis, "Data/no.plants.vis.csv")
 ### GLMMM ###
+
+plot(no.plants.vis$pl.no.vis, no.plants.vis$pol.bm)
 
 ##### Vis Per Pollinator Data, predictor Pollinator body size
 

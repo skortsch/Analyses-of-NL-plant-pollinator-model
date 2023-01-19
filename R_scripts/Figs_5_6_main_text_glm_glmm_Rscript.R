@@ -19,10 +19,10 @@ library("performance") #check residuals, calculates pseudo R-squared values
 dirF<-"../Figures/"
 
 #Working Dir
-setwd("C:/LocalData/susakort/pollinatorsNL/R_scripts") #setwd to your own directory
+#setwd("C:/LocalData/susakort/pollinatorsNL/R_scripts") #setwd to your own directory
 
 #data 
-vis_data<-read.csv("../Data/NLdata.csv", header=TRUE) #import data
+#vis_data<-read.csv("../Data/NLdata.csv", header=TRUE) #import data
 
 ##########################################################################################################################
 #Process vis_data
@@ -40,6 +40,10 @@ summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis)
 
 mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
 summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens), area.size=mean(free.dist))
+
+mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+  summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+
 
 #NOTE! one simulation got duplicated while doing the above procedures
 #However, the simulation is not duplicated in the input files
@@ -164,7 +168,7 @@ plot_nb.3
 Fig5_glm<-ggarrange(plot_nb.1, plot_nb.2, plot_nb.3, labels = c("a", "b", "c"), ncol = 3, common.legend = TRUE)
 annotate_figure(Fig5_glm, bottom = text_grob("plant intermixing [log]", size=14))
 
-ggsave(paste0(dirF, "Fig5_mean_logged.png"),width=10, height = 6, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "Fig5_mean_logged_ex3.png"),width=10, height = 6, units="in", dpi=600 ) 
 
 #GLM output table
 mod_tab_1<-tab_model(nb.seed.conn_1, nb.seed.conn_2, nb.seed.conn_3)
