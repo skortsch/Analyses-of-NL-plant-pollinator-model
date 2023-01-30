@@ -24,6 +24,8 @@ dirF<-"../Figures/"
 #data 
 #vis_data<-read.csv("../Data/NLdata.csv", header=TRUE) #import data
 
+vis_data<-read.csv("Data/NLdata_ex_2.csv", header=TRUE) #import data
+vis_data<-read.csv("C:/LocalData/susakort/abm pollination/pollinatorsNL/Data_processing_ex_v2/Data_output/df_total_con_prob_visits_prefs_dists_pl.dens_net.csv", header=TRUE)
 ##########################################################################################################################
 #Process vis_data
 
@@ -33,13 +35,13 @@ plant.l<- vis_data %>% arrange (run, plant_species) %>%  group_by(run, seed_perc
 poll.l<- vis_data %>%  arrange (run, plant_species) %>%  group_by(run, seed_percent, pollinator_species) %>% mutate(pol.links = n())
 plant.l_2<- plant.l %>% inner_join(poll.l)
 
-vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, free.dist, connectance=conn, nestedness=nest, pl.dens) %>% 
+vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
 summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
 
 ###mean visits per simulation across plants are used for the GLM 
 
-mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
-summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens), area.size=mean(free.dist))
+#mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+#summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens), area.size=mean(free.dist))
 
 mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
   summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
@@ -48,18 +50,24 @@ mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>%
 #NOTE! one simulation got duplicated while doing the above procedures
 #However, the simulation is not duplicated in the input files
 #to solve this, I took the mean of the duplicated rows to arrive at an overall mean
-which(duplicated(mean.vis.plant$run))
-mean.vis.plant[1564,]
-mean.vis.plant[1565,] #due to time constraints, I delete this line in the data until we have figured out why it is duplicated.
-mean.dup<-as.numeric(apply(rbind(mean.vis.plant[1565,][1,], mean.vis.plant[1564,]), 2, mean))
-mean.vis.plant[1564,]<-as.list(mean.dup)
-mean.vis.plant<-mean.vis.plant[-1565,]
-which(duplicated(mean.vis.plant$run))
+#which(duplicated(mean.vis.plant$run))
+#mean.vis.plant[1564,]
+#mean.vis.plant[1565,] #due to time constraints, I delete this line in the data until we have figured out why it is duplicated.
+#mean.dup<-as.numeric(apply(rbind(mean.vis.plant[1565,][1,], mean.vis.plant[1564,]), 2, mean))
+#mean.vis.plant[1564,]<-as.list(mean.dup)
+#mean.vis.plant<-mean.vis.plant[-1565,]
+#which(duplicated(mean.vis.plant$run))
 
 #########
 ### Figure 5 and 6 in the Main Text
 
 #Figure 5: GLM figure
+
+
+cols2<-c("darkgoldenrod1", "#000000", "cyan2", "purple1")
+lt2<-c("solid",  "dotted", "dashed","dotdash")
+
+
 #Relationship between total pollination visits and habitat structure for different levels of network connectance 
 
 nb.seed.conn_1<-glm.nb(round(number_visits) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log) 
@@ -83,15 +91,20 @@ pred.1$upper <- pred.1$y + 1.96 * pred.1$se
 pred.1$type<-"A) visitation rate"
 
 #make plot
-plot_nb.1<-ggplot(pred.1, aes(x=log(seed_percent),y=y,color=factor(connectance),group=connectance))+ 
+plot_nb.1<-ggplot(pred.1, aes(x=log(seed_percent),y=y,color=factor(connectance),linetype=factor(connectance), group=connectance))+ 
   theme_classic()+ theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(margin = margin(r = 10)))+
-  theme(panel.border = element_rect(fill=NA, color="black", size=0.5, linetype="solid"))+
-  geom_line(size=1) +
-  ylab("Visitation rate")+ xlab("") +labs(col = "Connectance") +theme(legend.position = "none")+
+  theme(panel.border = element_rect(fill=NA, color="black", size=0.5))+
+  geom_line(size=2) +
+  labs(col ="connectance",linetype="connectance")+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt2)+
+  scale_color_manual(values = cols2)+
+  ylab("Visitation rate")+ xlab("") +theme(legend.position = "none")+
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred.1) +
-  scale_color_manual(values =  c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
-  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))
+  scale_color_manual(values =  cols2)+
+  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))+
+  theme(legend.key.width= unit(2, 'cm'))
 plot_nb.1
 
 #Check deviance explained
@@ -117,14 +130,20 @@ pred.2$upper <- pred.2$y + 1.96 * pred.2$se
 pred.2$type<-"B) consecutive visits"
 
 #plot 
-plot_nb.2<-ggplot(pred.2, aes(x=log(seed_percent),y=y,color=factor(connectance),group=connectance))+geom_line(size=1) + 
+plot_nb.2<-ggplot(pred.2, aes(x=log(seed_percent),y=y,color=factor(connectance),linetype=factor(connectance), group=connectance))+ 
   theme_classic()+ theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(margin = margin(r = 10)))+
-  ylab("Consecutive visits")+ xlab("") +labs(col = "Connectance") +theme(legend.position = "none")+
+  theme(panel.border = element_rect(fill=NA, color="black", size=0.5))+
+  geom_line(size=2) +
+  labs(col ="connectance",linetype="connectance")+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt2)+
+  scale_color_manual(values = cols2)+
+  ylab("Consecutive visits")+ xlab("") +theme(legend.position = "none")+
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred.2) +
-  theme(panel.border = element_rect(fill=NA, color="black", size=0.5, linetype="solid"))+
-  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
-  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))    
+  scale_color_manual(values =  cols2)+
+  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))+
+  theme(legend.key.width= unit(2, 'cm')) 
 plot_nb.2
 
 #dev.null <- nb.seed.conn_2$null.deviance
@@ -150,14 +169,20 @@ pred.3$upper <- pred.3$y + 1.96 * pred.3$se
 pred.3$type<-"C) pollination success"
 
 #plot
-plot_nb.3<-ggplot(pred.3, aes(x=log(seed_percent),y=y,color=factor(connectance),group=connectance))+geom_line(size=1) + 
+plot_nb.3<-ggplot(pred.3, aes(x=log(seed_percent),y=y,color=factor(connectance),linetype=factor(connectance), group=connectance))+ 
   theme_classic()+ theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(margin = margin(r = 10)))+
-  ylab("Expected number of plants pollinated")+ xlab("") +labs(col = "Connectance") +theme(legend.position = "none")+
+  theme(panel.border = element_rect(fill=NA, color="black", size=0.5))+
+  geom_line(size=2) +
+  labs(col ="connectance",linetype="connectance")+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt2)+
+  scale_color_manual(values = cols2)+
+  ylab("Expected number of plants pollinated")+ xlab("") +theme(legend.position = "none")+
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred.3) +
-  theme(panel.border = element_rect(fill=NA, color="black", size=0.5, linetype="solid"))+
-  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
-  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12)) 
+  scale_color_manual(values =  cols2)+
+  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))+
+  theme(legend.key.width= unit(2, 'cm')) 
 plot_nb.3
 
 #dev.null <- nb.seed.conn_3$null.deviance
@@ -168,7 +193,7 @@ plot_nb.3
 Fig5_glm<-ggarrange(plot_nb.1, plot_nb.2, plot_nb.3, labels = c("a", "b", "c"), ncol = 3, common.legend = TRUE)
 annotate_figure(Fig5_glm, bottom = text_grob("plant intermixing [log]", size=14))
 
-ggsave(paste0(dirF, "Fig5_mean_logged_ex3.png"),width=10, height = 6, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "SI_Fig5_OLD_GLM_ex3.png"),width=10, height = 6, units="in", dpi=600 ) 
 
 #GLM output table
 mod_tab_1<-tab_model(nb.seed.conn_1, nb.seed.conn_2, nb.seed.conn_3)

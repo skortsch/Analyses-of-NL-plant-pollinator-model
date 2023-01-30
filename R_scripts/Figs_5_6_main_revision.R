@@ -24,6 +24,12 @@ setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses")
 
 #data for experiment 2: 7 habitats and random nest location
 vis_data<-read.csv("Data/NLdata_ex_2.csv", header=TRUE) #import data
+vis_data<-read.csv("Data/NLdata_ex_2_prefs.csv", header=TRUE) #import data
+
+#test data with removing the big pollinators
+#poll.big<-which(vis.per.poll$pollinator_species>6 & vis.per.poll$pol.bm>5)
+#vis_data<-vis_data[-poll.big,]
+
 
 #vis_data<-read.csv("Data/NLdata_ex_3.csv", header=TRUE) #import data
 #there are some NAs in the vis_data ex 3 file in number_visits variable
@@ -44,15 +50,15 @@ plant.l_2<- plant.l %>% inner_join(poll.l)
 #range(as.vector(plant.l_2[which(plant.l_2$pol.links==6),5]))
 
 
-vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
-  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), plant.links=mean(pl.links),pol.links=mean(pol.links), pl.no=mean(plant.density))
-
-
 #vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
-#summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+#  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), plant.links=mean(pl.links),pol.links=mean(pol.links), pl.no=mean(plant.density))
 
-vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, plant_species,  connectance=conn, pl.dens, pol.bm) %>% 
-  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
+vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
+summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
+vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, pollinator_species, plant_species,  connectance=conn, pl.dens, pol.bm, pol.soc) %>% 
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
 
 ###mean visits per simulation across plants are used for the GLM 
 
@@ -60,12 +66,12 @@ vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, plant_species,  connecta
  # summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pvis_prefs = mean(pvis_prefs), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
 
 
-mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
-  summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+#mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+ # summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
 
 
-mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
-summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pvis_prefs = mean(pvis_prefs), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+#mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+#summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pvis_prefs = mean(pvis_prefs), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
 
 #####################
 
@@ -73,13 +79,13 @@ summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pv
 #the simulation is not duplicated in the input files
 #to solve this, I took the mean of the duplicated rows to arrive at an overall mean
 
-which(duplicated(mean.vis.plant$run))
-mean.vis.plant[1564,]
-mean.vis.plant[1565,] #due to time constraints, I delete this line in the data until we have figured out why it is duplicated.
-mean.dup<-as.numeric(apply(rbind(mean.vis.plant[1565,][1,], mean.vis.plant[1564,]), 2, mean))
-mean.vis.plant[1564,]<-as.list(mean.dup)
-mean.vis.plant<-mean.vis.plant[-1565,]
-which(duplicated(mean.vis.plant$run))
+#which(duplicated(mean.vis.plant$run))
+#mean.vis.plant[1564,]
+#mean.vis.plant[1565,] #due to time constraints, I delete this line in the data until we have figured out why it is duplicated.
+#mean.dup<-as.numeric(apply(rbind(mean.vis.plant[1565,][1,], mean.vis.plant[1564,]), 2, mean))
+#mean.vis.plant[1564,]<-as.list(mean.dup)
+#mean.vis.plant<-mean.vis.plant[-1565,]
+#which(duplicated(mean.vis.plant$run))
 
 #####################
 
@@ -161,12 +167,38 @@ mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links+(1|run),
 #testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
 
 
+mod.pvis_prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
 
 ### plot the figures
+
+lt<-c("solid",  "dotted", "dashed","dotdash", "11", "81")
+
+#cols<-c("#7D9D33", "#CED38C", "#DCC949", "#BCA888", "#CD8862", "#775B24")
+#cols<-c("#325756", "#7d9fc2", "#C582B2", "#51806a", "#4d5f8e", "#A092B7")
+#cols<-c("#7ACCD7", "#115896", "#7C6C65", "#4C4C53", "#BA2F00", "#21282F")
+#cols<-c("#CCBBCD", "#85BEDC", "#21282F",  "#3A383F", "#A6B0BB", "#647588")
+#cols<-c("#DD3C51","#000000", "#313657", "#1F6683", "#6C90B9", "#D1C7B5")
+cols<-c("darkgoldenrod1", "#000000", "cyan2", "gray70", "purple1","lightpink1")
+#cols<-c("#3E4331", "#AD6B17", "#66743B", "#D0C471", "#CCB62F", "#BAC4C2")
+#cols<-c("#DD3C51","#21282F", "#21282F", "#7A3520", "#CCB62F", "#BAC4C2")
+#cols<-c("#CABEE9","#070604", "#7ACCD7", "gray70", "#DD3C51", "darkgoldenrod1")
+
+#https://g-thomson.github.io/Manu/ #Color inspiration
+
+cols<-c("#FAE093", "#2F3D70" , "#A8B9CB",  "#D04E59", "#BC8E7D", "#CABEE9")
+
+#cols<-c("darkgoldenrod1", "#2F3D70" , "cyan2",  "gray70","#D04E59", "lightpink")
+#cols<-c("darkgoldenrod1", "#000000", "#7ACCD7", "#BA2F00", "gray70","#A092B7")
+#cols<-c("darkgoldenrod1", "#000000", "cyan2", "purple1","gray70","lightpink")
+
 #visitation rate
+
 #pl.dens=mean(vis.per.plant$pl.dens),
 #mod.vis2<-mod.pvis.prefs2
-pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 3,  5,6))
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1,2, 3,4,5,6))
 pred$run<-NA
 pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
 pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
@@ -175,11 +207,14 @@ pred$upper <- pred$y + 1.96 * pred$se
 
 #"#00AFBB",
 
+#cols<-c("#5FA1F7", "#83A552", "#3D4928", "#9B1F1A", "#B19F8E", "#4E0B0C")
+#cols<-c("#7ACCD7", "#115896", "#7C6C65", "#4C4C53", "#BA2F00", "#21282F")
+
 plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
   theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
-  scale_color_manual(values = c("#E69F00", "#000000", "cyan", "purple"))+
+  scale_color_manual(values = cols)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  scale_linetype_manual(values=c(  "solid",  "dotted", "dotdash", "dashed"))+
+  scale_linetype_manual(values=lt)+
   geom_line(size=1.4)+ylab("Visitation rate")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   #geom_line(size=1.2)+ylab("expected pollination based on prefs")+xlab("") +labs(col ="poll links", linetype="poll links") +
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
@@ -200,7 +235,7 @@ plot.vis
 
 #consecutive visits
 #pl.dens=mean(vis.per.plant$pl.dens)
-pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 3, 5, 6))
+pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 2, 3, 4, 5, 6))
 pred2$run<-NA
 pred2$y <- predict(mod.cons2, pred2, type="response",allow.new.levels=TRUE)
 pred2$se <- predict(mod.cons2, pred2, type="response", se.fit = TRUE)$se
@@ -210,10 +245,10 @@ pred2$upper <- pred2$y + 1.96 * pred2$se
 #"#00AFBB",
 plot.cons<-ggplot(pred2,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
   theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred2)+
-  scale_color_manual(values = c("#E69F00", "#000000", "cyan", "purple"))+
+  scale_color_manual(values = cols)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  scale_linetype_manual(values=c(  "solid",  "dotted", "dotdash", "dashed"))+
-  geom_line(size=1.2)+ylab("Consecutive visits")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Consecutive visits")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) +
   theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
@@ -232,7 +267,7 @@ plot.cons
 
 #expected pollination visits
 #pl.dens=mean(vis.per.plant$pl.dens),
-pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 3, 5, 6))
+pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 2, 3, 4, 5, 6))
 pred3$run<-NA
 pred3$y <- predict(mod.pvis2, pred3, type="response",allow.new.levels=TRUE)
 pred3$se <- predict(mod.pvis2, pred3, type="response", se.fit = TRUE)$se
@@ -242,10 +277,10 @@ pred3$upper <- pred3$y + 1.96 * pred3$se
 # "#00AFBB" #cyan
 plot.pvis<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
   theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
-  scale_color_manual(values = c("#E69F00", "#000000", "cyan", "purple"))+
+  scale_color_manual(values = cols)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  scale_linetype_manual(values=c( "solid",  "dotted", "dotdash", "dashed"))+
-  geom_line(size=1.2)+ylab("Expected no. of plants pollinated")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Plants pollinated based on fixed decay")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
@@ -259,10 +294,43 @@ plot.pvis<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links),lin
   theme(legend.key.width= unit(2, 'cm'))
 plot.pvis
 
+
+#expected pollination visits based on prefs
+#pl.dens=mean(vis.per.plant$pl.dens),
+pred4 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 2, 3, 4, 5, 6))
+pred4$run<-NA
+pred4$y <- predict(mod.pvis_prefs2, pred4, type="response",allow.new.levels=TRUE)
+pred4$se <- predict(mod.pvis_prefs2, pred4, type="response", se.fit = TRUE)$se
+pred4$lower <- pred4$y - 1.96 * pred4$se
+pred4$upper <- pred4$y + 1.96 * pred4$se
+
+# "#00AFBB" #cyan
+plot.pvis_prefs<-ggplot(pred4,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
+  theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred4)+
+  scale_color_manual(values = cols)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Plants pollinated based on preferences")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(legend.text = element_text(size=14)) +
+  theme(legend.title = element_text(size=14))+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.pvis_prefs
+
 Fig_glmm_pol<-ggarrange(plot.vis, plot.cons, plot.pvis, widths = c(6, 6, 6), labels = c("a", "b", "c"), font.label = list(size = 16, color = "black"), ncol = 3, common.legend = TRUE)
 annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing [log]", size=16))
 
-ggsave(paste0(dirF, "Fig5_glmm_poll.degree_ex_2_4lines.png"),width=11, height = 7, units="in", dpi=600 ) 
+Fig_glmm_pol<-ggarrange(plot.pvis, plot.pvis_prefs, widths = c( 6, 6), labels = c("a", "b"), font.label = list(size = 16, color = "black"), ncol = 2, common.legend = TRUE)
+annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing [log]", size=16))
+
+ggsave(paste0(dirF, "Fig4_geo_based_perferences.png"),width=11, height = 7, units="in", dpi=600 ) 
 
 
 t.v<-tab_model(mod.vis2)
@@ -333,9 +401,10 @@ mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links*pl.dens+(1|run),
 
 
 ### PLOT figures
+
 #visitation rate
 
-pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,3,5 ,6))
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2, 3,4, 5 , 6))
 pred$run<-NA
 pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
 pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
@@ -346,10 +415,10 @@ plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links), lin
   theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
   #scale_color_manual(values = c("#E69F00", "purple", "#000000"))+
-  scale_color_manual(values = c("#E69F00", "#000000", "cyan", "purple"))+
-  scale_linetype_manual(values=c( "solid",  "dotted", "dotdash", "dashed"))+
+  scale_color_manual(values = cols)+
+  scale_linetype_manual(values=lt)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  geom_line(size=1.2)+ylab("Visitation rate")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  geom_line(size=1.4)+ylab("Visitation rate")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
@@ -366,7 +435,7 @@ plot.vis2
 
 
 
-pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,3,5,6))
+pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2,3,4,5,6))
 pred2$run<-NA
 pred2$y <- predict(mod.cons2, pred2, type="response",allow.new.levels=TRUE)
 pred2$se <- predict(mod.cons2, pred2, type="response", se.fit = TRUE)$se
@@ -376,10 +445,10 @@ pred2$upper <- pred2$y + 1.96 * pred$se
 plot.cons2<-ggplot(pred2,aes(x=log(seed_percent),y=y, color=factor(pol.links), linetype=factor(pol.links)),group=pol.links)+
   theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred2)+
-  scale_color_manual(values = c("#E69F00", "#000000", "cyan", "purple"))+
-  scale_linetype_manual(values=c( "solid",  "dotted", "dotdash", "dashed"))+
+  scale_color_manual(values = cols)+
+  scale_linetype_manual(values=lt)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  geom_line(size=1.2)+ylab("Consecutive visits")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  geom_line(size=1.4)+ylab("Consecutive visits")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
@@ -396,7 +465,7 @@ plot.cons2
 
 
 #expected pollination visits
-pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,3,5,6))
+pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2, 3,4, 5,6))
 pred3$run<-NA
 pred3$y <- predict(mod.pvis2, pred, type="response",allow.new.levels=TRUE)
 pred3$se <- predict(mod.pvis2, pred, type="response", se.fit = TRUE)$se
@@ -406,10 +475,10 @@ pred3$upper <- pred3$y + 1.96 * pred3$se
 plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links), linetype=factor(pol.links)),group=pol.links)+
   theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
   geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
-  scale_color_manual(values = c("#E69F00", "#000000", "cyan", "purple"))+
-  scale_linetype_manual(values=c( "solid",  "dotted", "dotdash", "dashed"))+
+  scale_color_manual(values = cols)+
+  scale_linetype_manual(values=lt)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
-  geom_line(size=1.2)+ylab("Expected no. of plants pollinated")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  geom_line(size=1.4)+ylab("Expected no. of plants pollinated")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
@@ -426,12 +495,12 @@ plot.pvis2
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), 
                              labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-4,heights=c(1,1,1.2))
 annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
-ggsave(paste0(dirF, "Fig_glmm_pol_dens_ex_2.png"),width=8, height = 12, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "Fig4_without.big.soc.23.png"),width=8, height = 12, units="in", dpi=600 ) 
 
 
-tab_model(mod.vis2)
-tab_model(mod.cons2)
-tab_model(mod.pvis2)
+m1<-tab_model(mod.vis2)
+m2<-tab_model(mod.cons2)
+m3<-tab_model(mod.pvis2)
 
 library("webshot")
 # first save table to html file
