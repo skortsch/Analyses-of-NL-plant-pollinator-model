@@ -14,16 +14,16 @@ library("bipartite")
 ppi<-300 #pixels per inches
 dirF<-"../Figures/"
 
-setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses/R_scripts")
+#setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses/R_scripts")
 
 #set wd 
 #original place of script
-setwd("Z:/Documents/postdoc_project_Helsinki/myNetlogo_models/Netlogo_models/pollinatorsNL-main_18/R_scripts")
+#setwd("Z:/Documents/postdoc_project_Helsinki/myNetlogo_models/Netlogo_models/pollinatorsNL-main_18/R_scripts")
 
 #facet-wrapped geometric
 
 #merge files to make face_wrap
-dat.geo.SI<-read.csv("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses/Data/dat.geo.SI.csv")
+dat.geo.SI<-read.csv("Data/dat.geo.SI.csv")
 
 ggplot(dat.geo.SI, aes(seed_percent, number_visits, colour=vis.type, fill=vis.type)) +
   geom_smooth(method="lm") + geom_point() + theme_bw() +
@@ -38,7 +38,7 @@ ggplot(dat.geo.SI, aes(seed_percent, number_visits, colour=vis.type, fill=vis.ty
     theme(legend.position = "none")+
     theme(axis.text.y = element_text(size = 10))+
     theme(axis.text.x = element_text(size = 10))+
-    #stat_cor(label.y=0.025) #LEO CAN YOU Customise the stat cor function!!!
+    stat_cor(label.y=c(8000,3500,5000,5000,5000,4000,3000,1000,300)) #LEO CAN YOU Customise the stat cor function!!!
     #also we don't need to show text on x axes for the two upper panels
  
 #   geom_text(data=r_df, aes(label=paste("rsq=", rsq)), 
