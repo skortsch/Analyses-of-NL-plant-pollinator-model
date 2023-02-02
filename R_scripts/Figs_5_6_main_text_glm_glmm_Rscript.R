@@ -5,7 +5,7 @@
 
 #load packages
 library("tidyverse") #needed to easily summarise, analyse, and visualise data 
-library("ggpubr")    #arrange plot
+library("ggpubr")    #arrange plotS
 library("sjPlot")    #visualizing results, making tables with model output
 library("ggeffects")
 library("MASS")      #nb.glm function

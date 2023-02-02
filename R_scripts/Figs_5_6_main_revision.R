@@ -89,12 +89,12 @@ vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, pollinator_species, plan
 
 #####################
 
-### Figures 5 and 6 in the Main Text
+### Figures 4 and 5 in the Main Text
 
 #####################
 ### GLMMM ###
 
-##### Fig 5
+##### Fig 4
 
 #Visitation rate
 #offset(pl.dens)
@@ -176,24 +176,17 @@ mod.pvis_prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run),
 
 lt<-c("solid",  "dotted", "dashed","dotdash", "11", "81")
 
-#cols<-c("#7D9D33", "#CED38C", "#DCC949", "#BCA888", "#CD8862", "#775B24")
-#cols<-c("#325756", "#7d9fc2", "#C582B2", "#51806a", "#4d5f8e", "#A092B7")
-#cols<-c("#7ACCD7", "#115896", "#7C6C65", "#4C4C53", "#BA2F00", "#21282F")
-#cols<-c("#CCBBCD", "#85BEDC", "#21282F",  "#3A383F", "#A6B0BB", "#647588")
-#cols<-c("#DD3C51","#000000", "#313657", "#1F6683", "#6C90B9", "#D1C7B5")
-cols<-c("darkgoldenrod1", "#000000", "cyan2", "gray70", "purple1","lightpink1")
-#cols<-c("#3E4331", "#AD6B17", "#66743B", "#D0C471", "#CCB62F", "#BAC4C2")
-#cols<-c("#DD3C51","#21282F", "#21282F", "#7A3520", "#CCB62F", "#BAC4C2")
-#cols<-c("#CABEE9","#070604", "#7ACCD7", "gray70", "#DD3C51", "darkgoldenrod1")
 
+#cols<-c("darkgoldenrod1", "#000000", "cyan2", "gray70", "purple1","lightpink1")
 #https://g-thomson.github.io/Manu/ #Color inspiration
+#cols<-c("#FAE093", "#2F3D70" , "#A8B9CB",  "#D04E59", "#BC8E7D", "#CABEE9")
+#eastern_rosella <- get_pal("eastern_rosella")
+#cassowary<-get_pal("cassowary")
+#cols<-eastern_rosella[c(1:6)]
+#cols<-cassowary[c(1:6)]
 
-cols<-c("#FAE093", "#2F3D70" , "#A8B9CB",  "#D04E59", "#BC8E7D", "#CABEE9")
-
-#cols<-c("darkgoldenrod1", "#2F3D70" , "cyan2",  "gray70","#D04E59", "lightpink")
-#cols<-c("darkgoldenrod1", "#000000", "#7ACCD7", "#BA2F00", "gray70","#A092B7")
-#cols<-c("darkgoldenrod1", "#000000", "cyan2", "purple1","gray70","lightpink")
-
+cols<-c("#f4c623", "#153460", "#0169C4","#3EBCB6", "#D5114E", "#A56EB6")
+#cols<-c("#f4c623", "#153460", "#0169C4","#3EBCB6", "#D5114E", "darkorchid2")
 #visitation rate
 
 #pl.dens=mean(vis.per.plant$pl.dens),
@@ -205,10 +198,6 @@ pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
 pred$lower <- pred$y - 1.96 * pred$se
 pred$upper <- pred$y + 1.96 * pred$se
 
-#"#00AFBB",
-
-#cols<-c("#5FA1F7", "#83A552", "#3D4928", "#9B1F1A", "#B19F8E", "#4E0B0C")
-#cols<-c("#7ACCD7", "#115896", "#7C6C65", "#4C4C53", "#BA2F00", "#21282F")
 
 plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
   theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
@@ -261,7 +250,6 @@ theme(legend.text = element_text(size=14)) +
   theme(legend.title = element_text(size=14))+
   theme(legend.key.width= unit(2, 'cm'))
 plot.cons
-
 
 
 
@@ -326,10 +314,10 @@ plot.pvis_prefs
 
 Fig_glmm_pol<-ggarrange(plot.vis, plot.cons, plot.pvis, widths = c(6, 6, 6), labels = c("a", "b", "c"), font.label = list(size = 16, color = "black"), ncol = 3, common.legend = TRUE)
 annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing [log]", size=16))
+ggsave(paste0(dirF, "Fig4_main_text_revised.png"),width=11, height = 7, units="in", dpi=600 ) 
 
 Fig_glmm_pol<-ggarrange(plot.pvis, plot.pvis_prefs, widths = c( 6, 6), labels = c("a", "b"), font.label = list(size = 16, color = "black"), ncol = 2, common.legend = TRUE)
 annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing [log]", size=16))
-
 ggsave(paste0(dirF, "Fig4_geo_based_perferences.png"),width=11, height = 7, units="in", dpi=600 ) 
 
 
@@ -346,7 +334,7 @@ tab_model(lme1, file = "plot.html")
 #####################
 ### GLMMM ###
 
-##### Fig 6
+##### Fig 5
 
 mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.links*pl.dens+(1|run), 
                   family="nbinom2",
@@ -495,7 +483,7 @@ plot.pvis2
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), 
                              labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-4,heights=c(1,1,1.2))
 annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
-ggsave(paste0(dirF, "Fig4_without.big.soc.23.png"),width=8, height = 12, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "Fig_5_main_text_revised.png"),width=8, height = 12, units="in", dpi=600 ) 
 
 
 m1<-tab_model(mod.vis2)
