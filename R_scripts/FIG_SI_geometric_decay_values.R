@@ -22,6 +22,13 @@ setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses/R_scripts")
 
 #merge files to make face_wrap
 dat.geo.SI<-read.csv("../Data/dat.geo.SI.csv")
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.1"]<-"c) geo decay 0.1"
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.2"]<-"d) geo decay 0.2"
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.3"]<-"e) geo decay 0.3"
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.4"]<-"f) geo decay 0.4"
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.5"]<-"g) geo decay 0.5"
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.7"]<-"h) geo decay 0.7"
+dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.9"]<-"i) geo decay 0.9"
 
 ggplot(dat.geo.SI, aes(seed_percent, number_visits, colour=vis.type, fill=vis.type)) +
   geom_smooth(method="lm") + geom_point() + theme_bw() +
@@ -47,11 +54,3 @@ ggplot(dat.geo.SI, aes(seed_percent, number_visits, colour=vis.type, fill=vis.ty
 #ggsave(paste0(dirF, "geometric_SI.png"),width=8, height = 6, units="in", dpi=600 ) 
 ggsave(paste0(dirF, "geometric_SI.png"),width=8, height = 6, units="in", dpi=600 ) 
 
-Footer
-© 2023 GitHub, Inc.
-Footer navigation
-Terms
-Privacy
-Security
-Status
-D
