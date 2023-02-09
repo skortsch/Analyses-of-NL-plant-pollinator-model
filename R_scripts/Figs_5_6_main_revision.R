@@ -422,7 +422,6 @@ plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links), lin
 plot.vis2
 
 
-
 pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2,3,4,5,6))
 pred2$run<-NA
 pred2$y <- predict(mod.cons2, pred2, type="response",allow.new.levels=TRUE)

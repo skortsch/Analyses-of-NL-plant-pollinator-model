@@ -33,16 +33,17 @@ dat.geo.SI$vis.type[dat.geo.SI$vis.type=="geo decay 0.9"]<-"i) geo decay 0.9"
 ggplot(dat.geo.SI, aes(seed_percent, number_visits, colour=vis.type, fill=vis.type)) +
   geom_smooth(method="lm") + geom_point() + theme_bw() +
   facet_wrap(~ vis.type, scales="free")+
+  theme(strip.text.x = element_text(size = 11))+
   ylab("Pollination visits") + xlab("plant intermixing")+
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"), 
         panel.border = element_rect(fill = NA, colour = "white"), 
         axis.line = element_line(),
         strip.background = element_blank(),
-        panel.margin = unit(2, "lines"))+
+        panel.margin = unit(1, "lines"))+
   theme(legend.position = "none")+
-  theme(axis.text.y = element_text(size = 10))+
-  theme(axis.text.x = element_text(size = 10))+
+  theme(axis.text.y = element_text(size = 11), axis.title = element_text(size = 12))+
+  theme(axis.text.x = element_text(size = 11), axis.title = element_text(size = 12))+
   stat_cor(label.y=c(8000,3500,5000,5000,5000,4000,3000,1000,300)) #LEO CAN YOU Customise the stat cor function!!!
 #also we don't need to show text on x axes for the two upper panels
 
@@ -52,5 +53,5 @@ ggplot(dat.geo.SI, aes(seed_percent, number_visits, colour=vis.type, fill=vis.ty
 
 #strip.text.x = element_blank(), removes title text
 #ggsave(paste0(dirF, "geometric_SI.png"),width=8, height = 6, units="in", dpi=600 ) 
-ggsave(paste0(dirF, "geometric_SI.png"),width=8, height = 6, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "SI_Fig_S6.png"),width=8, height = 6, units="in", dpi=600 ) 
 
