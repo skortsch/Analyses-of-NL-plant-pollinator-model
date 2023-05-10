@@ -1,0 +1,933 @@
+######################################################################################################################
+# R Code used for constructing figures 4 and 5 in:
+# Landscape composition and pollinator traits interact to influence pollination success in an individual-based mode ###
+# Susanne Kortsch, Leonardo Saravia, Alyssa Cirtwill, Thomas Timberlake, Jane Memmott, Liam Kendall, Tomas Roslin, and Giovanni Strona
+
+#load packages
+library("MASS")      #nb.glm function
+library("tidyverse") #needed to easily summarise, analyse, and visualise data 
+library("ggpubr")    #arrange plot
+library("sjPlot")    #visualizing results, making tables with model output
+library("ggeffects")
+library("DHARMa")    #check residuals
+library("glmmTMB")   #glmm 
+library("jtools")
+library("fmsb")
+library("performance") #check residuals, calculates pseudo R-squared values
+
+#Figure dir 
+dirF<-"Figures/"
+
+#Working Dir
+#setwd("C:/LocalData/susakort/abm pollination/Scripts_1st_submission/R_scripts") #setwd to your own directory
+setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses")
+
+#load data
+#data for experiment 2: 7 habitats and random nest location
+vis_data<-read.csv("Data/test/NLdata_ex_2.csv", header=TRUE) #import data
+
+#vis_data<- vis_data %>% arrange (run, pollinator_species)
+#vis_data1<-read.csv("Data/NLdata_ex_2.csv", header=TRUE) #import data
+#vis_data2<-read.csv("Data/NLdata_ex_2_prefs.csv", header=TRUE) #import data
+#vis_data3<-read.csv("Data/NL_data_ex_2_prefs.csv", header=TRUE) #import data
+
+#test influence of large bodied eusocial species by removing the big pollinators for pollinator species from category 7 and 8
+#poll.big<-which(vis.per.poll$pollinator_species>6 & vis.per.poll$pol.bm>5)
+#vis_data<-vis_data[-poll.big,]
+
+##########################################################################################################################
+#Process vis_data
+
+#add number of plant links
+plant.l<- vis_data %>% arrange (run, plant_species) %>%  group_by(run, seed_percent, plant_species) %>% mutate(pl.links = n())
+#add number of pollinator links
+poll.l<- vis_data %>%  arrange (run, plant_species) %>%  group_by(run, seed_percent, pollinator_species) %>% mutate(pol.links = n())
+plant.l_2<- plant.l %>% inner_join(poll.l)
+
+#range(as.vector(plant.l_2[which(plant.l_2$pol.links==6),5]))
+
+vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), plant.links=mean(pl.links),pol.links=mean(pol.links), pl.no=mean(plant.density))
+
+#vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
+#summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
+vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, pollinator_species, plant_species,  connectance=conn, pl.dens, pol.bm, pol.soc) %>% 
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref),  pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
+#vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, pollinator_species, plant_species,  connectance=conn, pl.dens, pol.bm, pol.soc) %>% 
+# summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
+
+###mean visits per simulation across plants are used for the GLM as in first submission
+
+#mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+# summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pvis_prefs = mean(pvis_prefs), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+
+#FOR THE GLM ANALYSIS (previous version of ms)
+mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+ summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+
+#mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+#summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), pvis_prefs = mean(pvis_prefs), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+
+#####################
+
+#ONLY FOR 1st submission vis_data file, there was a duplicate in this file, remove it
+#the simulation is not duplicated in the input files
+#to solve this, I took the mean of the duplicated rows to arrive at an overall mean
+
+#which(duplicated(mean.vis.plant$run))
+#mean.vis.plant[1564,]
+#mean.vis.plant[1565,] #due to time constraints, I delete this line in the data until we have figured out why it is duplicated.
+#mean.dup<-as.numeric(apply(rbind(mean.vis.plant[1565,][1,], mean.vis.plant[1564,]), 2, mean))
+#mean.vis.plant[1564,]<-as.list(mean.dup)
+#mean.vis.plant<-mean.vis.plant[-1565,]
+#which(duplicated(mean.vis.plant$run))
+
+#####################
+
+### Figures 4 and 5 in the Main Text
+
+#####################
+### GLMMM ###
+
+##### Fig 4
+
+#Visitation rate
+#offset(pl.dens)
+mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.links+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+#checks model fit
+#check_model(mod.vis2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.vis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#consecutive visit
+#+offset(pl.dens)
+mod.cons2<-glmmTMB(round(cons)~log(seed_percent)*pol.links+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+#checks model fit
+#check_model(mod.cons2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.cons2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#expected pollination visits
+#+offset(pl.dens)
+mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+
+#checks model fit
+#check_model(mod.pvis2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.pvis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+#mod.pvis.prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run), 
+ #                  family="nbinom2",
+  #                 data=vis.per.plant)
+
+
+#checks model fit
+#check_model(mod.pvis2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.pvis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+#Code to test for preferences
+
+#mod.pvis_prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run), 
+#                   family="nbinom2",
+#                   data=vis.per.plant)
+
+
+### plot the figures
+
+lt<-c("solid",  "dotted", "dashed","dotdash", "11", "81")
+
+
+#cols<-c("darkgoldenrod1", "#000000", "cyan2", "gray70", "purple1","lightpink1")
+#https://g-thomson.github.io/Manu/ #Color inspiration
+#cols<-c("#FAE093", "#2F3D70" , "#A8B9CB",  "#D04E59", "#BC8E7D", "#CABEE9")
+#eastern_rosella <- get_pal("eastern_rosella")
+#cassowary<-get_pal("cassowary")
+#cols<-eastern_rosella[c(1:6)]
+#cols<-cassowary[c(1:6)]
+
+cols<-c("#f4c623", "#153460", "#0169C4","#3EBCB6", "#D5114E", "#A56EB6")
+#cols<-c("#f4c623", "#153460", "#0169C4","#3EBCB6", "#D5114E", "darkorchid2")
+#visitation rate
+
+#pl.dens=mean(vis.per.plant$pl.dens),
+#mod.vis2<-mod.pvis.prefs2
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1,2, 3,4,5,6))
+pred$run<-NA
+pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+
+plot.vis<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
+  theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = cols)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Visitation rate")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  #geom_line(size=1.2)+ylab("expected pollination based on prefs")+xlab("") +labs(col ="poll links", linetype="poll links") +
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) +
+  theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+  strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(legend.text = element_text(size=14)) +
+  theme(legend.title = element_text(size=14))+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.vis
+
+#ggsave(paste0(dirF, "expected_poll_prefs.png"),width=10, height = 6, units="in", dpi=600 ) 
+
+
+#consecutive visits
+#pl.dens=mean(vis.per.plant$pl.dens)
+pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 2, 3, 4, 5, 6))
+pred2$run<-NA
+pred2$y <- predict(mod.cons2, pred2, type="response",allow.new.levels=TRUE)
+pred2$se <- predict(mod.cons2, pred2, type="response", se.fit = TRUE)$se
+pred2$lower <- pred2$y - 1.96 * pred2$se
+pred2$upper <- pred2$y + 1.96 * pred2$se
+
+#"#00AFBB",
+plot.cons<-ggplot(pred2,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
+  theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred2)+
+  scale_color_manual(values = cols)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Consecutive visits")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) +
+  theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95",  linetype="solid"))+
+  theme(legend.position="top")+
+theme(legend.text = element_text(size=14)) +
+  theme(legend.title = element_text(size=14))+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.cons
+
+
+
+#expected pollination visits
+#pl.dens=mean(vis.per.plant$pl.dens),
+pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 2, 3, 4, 5, 6))
+pred3$run<-NA
+pred3$y <- predict(mod.pvis2, pred3, type="response",allow.new.levels=TRUE)
+pred3$se <- predict(mod.pvis2, pred3, type="response", se.fit = TRUE)$se
+pred3$lower <- pred3$y - 1.96 * pred3$se
+pred3$upper <- pred3$y + 1.96 * pred3$se
+
+# "#00AFBB" #cyan
+plot.pvis<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
+  theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
+  scale_color_manual(values = cols)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Mean expected number of plants pollinated")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(legend.text = element_text(size=14)) +
+  theme(legend.title = element_text(size=14))+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.pvis
+
+
+#figure for expected pollination visits based on preferences
+#pl.dens=mean(vis.per.plant$pl.dens),
+pred4 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pol.links=c(1, 2, 3, 4, 5, 6))
+pred4$run<-NA
+pred4$y <- predict(mod.pvis_prefs2, pred4, type="response",allow.new.levels=TRUE)
+pred4$se <- predict(mod.pvis_prefs2, pred4, type="response", se.fit = TRUE)$se
+pred4$lower <- pred4$y - 1.96 * pred4$se
+pred4$upper <- pred4$y + 1.96 * pred4$se
+
+# "#00AFBB" #cyan
+plot.pvis_prefs<-ggplot(pred4,aes(x=log(seed_percent),y=y, color=factor(pol.links),linetype=factor(pol.links)))+
+  theme_bw() + geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred4)+
+  scale_color_manual(values = cols)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  scale_linetype_manual(values=lt)+
+  geom_line(size=1.4)+ylab("Plants pollinated based on preferences")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(legend.text = element_text(size=14)) +
+  theme(legend.title = element_text(size=14))+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.pvis_prefs
+
+Fig_glmm_pol<-ggarrange(plot.vis, plot.cons, plot.pvis, widths = c(6, 6, 6), labels = c("a", "b", "c"), font.label = list(size = 16, color = "black"), ncol = 3, common.legend = TRUE)
+annotate_figure(Fig_glmm_pol,bottom = text_grob("Plant intermixing", size=16))
+ggsave(paste0(dirF, "Fig4_main_text_revised_xlab_corrected.png"),width=11, height = 7, units="in", dpi=600 ) 
+
+Fig_glmm_pol<-ggarrange(plot.pvis, plot.pvis_prefs, widths = c( 6, 6), labels = c("a", "b"), font.label = list(size = 16, color = "black"), ncol = 2, common.legend = TRUE)
+annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing", size=16))
+#dirF<-"C:/LocalData/susakort/abm pollination/revision/resubmission_files/Figures_final_high_res"
+
+ggsave(paste0(dirF, "Figure 4 main text.png"),width=11, height = 7, units="in", dpi=600 ) 
+
+
+t.v<-tab_model(mod.vis2)
+t.c<-tab_model(mod.cons2)
+t.p<-tab_model(mod.pvis2)
+
+library("webshot")
+# first save table to html file
+tab_model(lme1, file = "plot.html")
+
+############################################################################################################
+
+#####################
+### GLMMM ###
+
+##### Fig 5
+
+mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.links*pl.dens+(1|run), 
+                  family="nbinom2",
+                  data=vis.per.plant)
+
+#checks model fit
+#check_model(mod.vis2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.vis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#consecutive visits
+mod.cons2<-glmmTMB(round(cons)~log(seed_percent)*pol.links*pl.dens+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+
+#checks model fit
+#check_model(mod.cons2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.cons2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#expected pollination visits
+mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links*pl.dens+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+
+#checks model fit
+#check_model(mod.pvis2)
+
+#dharma residual checks
+#res_vis<- simulateResiduals(mod.pvis2, 200)
+#plot(res_vis)#tests if the overall distribution conforms to expectations
+#testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+#testResiduals(res_vis)
+#testUniformity(res_vis)
+#testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+### PLOT figures
+
+#visitation rate
+
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2, 3,4, 5 , 6))
+pred$run<-NA
+pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links), linetype=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  #scale_color_manual(values = c("#E69F00", "purple", "#000000"))+
+  scale_color_manual(values = cols)+
+  scale_linetype_manual(values=lt)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  geom_line(size=1.4)+ylab("Visitation rate")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  #theme(strip.text.y = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(axis.text.x=element_blank())+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.vis2
+
+
+pred2 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2,3,4,5,6))
+pred2$run<-NA
+pred2$y <- predict(mod.cons2, pred2, type="response",allow.new.levels=TRUE)
+pred2$se <- predict(mod.cons2, pred2, type="response", se.fit = TRUE)$se
+pred2$lower <- pred2$y - 1.96 * pred$se
+pred2$upper <- pred2$y + 1.96 * pred$se
+
+plot.cons2<-ggplot(pred2,aes(x=log(seed_percent),y=y, color=factor(pol.links), linetype=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred2)+
+  scale_color_manual(values = cols)+
+  scale_linetype_manual(values=lt)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  geom_line(size=1.4)+ylab("Consecutive visits")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  #theme(strip.text.y = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(axis.text.x=element_blank())+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.cons2
+
+
+#expected pollination visits
+pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(1,2, 3,4, 5,6))
+pred3$run<-NA
+pred3$y <- predict(mod.pvis2, pred, type="response",allow.new.levels=TRUE)
+pred3$se <- predict(mod.pvis2, pred, type="response", se.fit = TRUE)$se
+pred3$lower <- pred3$y - 1.96 * pred3$se
+pred3$upper <- pred3$y + 1.96 * pred3$se
+
+plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links), linetype=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
+  scale_color_manual(values = cols)+
+  scale_linetype_manual(values=lt)+
+  scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
+  geom_line(size=1.4)+ylab("Expected no. of plants pollinated")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  theme(panel.margin.x=unit(0.8, "lines") , panel.margin.y=unit(0.8,"lines"))+
+  theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14))  + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  #theme(strip.text.y = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", linetype="solid"))+
+  theme(legend.position="top")+
+  theme(legend.key.width= unit(2, 'cm'))
+plot.pvis2
+
+Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), 
+                             labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-4,heights=c(1,1,1.2))
+annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("Plant intermixing", size=14))
+ggsave(paste0(dirF, "Figure 5 main text.png"),width=8, height = 12, units="in", dpi=600 ) 
+
+
+m1<-tab_model(mod.vis2)
+m2<-tab_model(mod.cons2)
+m3<-tab_model(mod.pvis2)
+
+library("webshot")
+# first save table to html file
+tab_model(lme1, file = "plot.html")
+
+
+#####################
+### GLMMM ###
+
+##### Vis Per Pollinator Data, predictor Pollinator body size
+
+
+mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.bm+offset(pl.dens)+(1|run), 
+                  family="nbinom2",
+                  data=vis.per.poll)
+
+#checks model fit
+check_model(mod.vis2)
+
+#dharma residual checks
+res_vis<- simulateResiduals(mod.vis2, 200)
+plot(res_vis)#tests if the overall distribution conforms to expectations
+testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+testResiduals(res_vis)
+testUniformity(res_vis)
+testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#consecutive visits
+mod.cons2<-glmmTMB(round(cons)~log(seed_percent)*pol.bm+offset(pl.dens)+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.poll)
+
+
+#checks model fit
+check_model(mod.cons2)
+
+#dharma residual checks
+res_vis<- simulateResiduals(mod.cons2, 200)
+plot(res_vis)#tests if the overall distribution conforms to expectations
+testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+testResiduals(res_vis)
+testUniformity(res_vis)
+testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#expected pollination visits
+mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.bm+offset(pl.dens)+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.poll)
+
+
+#checks model fit
+check_model(mod.pvis2)
+
+#dharma residual checks
+res_vis<- simulateResiduals(mod.pvis2, 200)
+plot(res_vis)#tests if the overall distribution conforms to expectations
+testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+testResiduals(res_vis)
+testUniformity(res_vis)
+testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#visitation rate
+
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=mean(vis.per.poll$pl.dens), pol.bm=c(2,4,6,8))
+pred$run<-NA
+pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+
+colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+                                pie(rep(1, 8), col = colorBlindBlack8)
+
+#scale_linetype_manual(c("solid", "dotted", "dashed", "twodash"))
+                                
+#plot1<-ggplot(pred,aes(x=seed_percent,y=y,color=factor(pol.bm), linetype=factor(pol.bm), group=pol.bm, size=2))+
+                                
+plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.bm), linetype=factor(pol.bm)))+
+  theme_bw()+ geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = c("#0072B2","#E69F00", "#009E73", "#CC79A7"))+
+  geom_line(size=1)+ ylab("Visitation rate")+xlab("") +labs(col ="ITD",linetype = "ITD") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 12)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+  strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  #theme(strip.text.y = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.vis2
+
+
+#consecutive visits
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=mean(vis.per.poll$pl.dens), pol.bm=c(2,4,6,8))
+pred$run<-NA
+pred$y <- predict(mod.cons2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.cons2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+plot.cons2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.bm),linetype=factor(pol.bm)))+
+  theme_bw()+ geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = c("#0072B2","#E69F00", "#009E73", "#CC79A7"))+
+  geom_line(size=1)+ylab("Consecutive visits")+xlab("") +labs(col ="ITD",linetype="ITD") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.cons2
+
+
+#expected pollination visits
+pred3 <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=mean(vis.per.poll$pl.dens), pol.bm=c(2,4,6,8))
+pred3$run<-NA
+pred3$y <- predict(mod.pvis2, pred, type="response",allow.new.levels=TRUE)
+pred3$se <- predict(mod.pvis2, pred, type="response", se.fit = TRUE)$se
+pred3$lower <- pred3$y - 1.96 * pred3$se
+pred3$upper <- pred3$y + 1.96 * pred3$se
+
+plot.pvis2<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.bm),linetype=factor(pol.bm)))+
+  theme_bw()+ geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred3)+
+  scale_color_manual(values = c("#0072B2","#E69F00", "#009E73", "#CC79A7"))+
+  geom_line(size=1)+ylab("Expected number of plants pollinated")+xlab("") +labs(col ="ITD",linetype="ITD") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 14, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.pvis2
+
+Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), ncol = 3, common.legend = TRUE)
+annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]"))
+ggsave(paste0(dirF, "Fig_glmm_bodysizes_all_log.png"),width=8, height = 10, units="in", dpi=600 ) 
+
+
+tab_model(mod.vis2)
+tab_model(mod.cons2)
+tab_model(mod.pvis2)
+
+library("webshot")
+# first save table to html file
+tab_model(lme1, file = "plot.html")
+
+############################################################################################################
+
+
+####script from 1st submission
+### Figure 5 and 6 in the Main Text
+
+mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+  summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+
+
+#Figure 5: GLM figure
+#Relationship between total pollination visits and habitat structure for different levels of network connectance 
+
+nb.seed.conn_1<-glm.nb(round(number_visits) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log) 
+summary(nb.seed.conn_1)
+
+#peudo R2
+r2_nagelkerke(nb.seed.conn_1)
+
+#check residuals
+#plot(nb.seed.conn_1)
+
+#predict
+pred.1 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1), mean.plant.dens= mean(mean.vis.plant$mean.plant.dens))
+pred.1
+pred.1$y <- predict(nb.seed.conn_1, pred.1, type="response")
+pred.1$se <- predict(nb.seed.conn_1, pred.1, type="response", se.fit = TRUE)$se
+
+#calculate confidence intervals
+pred.1$lower <- pred.1$y - 1.96 * pred.1$se
+pred.1$upper <- pred.1$y + 1.96 * pred.1$se
+pred.1$type<-"A) visitation rate"
+
+#make plot
+plot_nb.1<-ggplot(pred.1, aes(x=log(seed_percent),y=y,color=factor(connectance), group=connectance))+ 
+  theme_classic()+ theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.border = element_rect(fill=NA, color="black", linewidth=0.5, linetype="solid"))+
+  geom_line(size=1) +
+  ylab("Visitation rate")+ xlab("") +labs(col = "Connectance") +theme(legend.position = "none")+
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred.1) +
+  scale_color_manual(values =  c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
+  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))
+plot_nb.1
+
+#Check deviance explained
+#dev.null <- nb.seed.conn_1$null.deviance
+#dev.resid <- nb.seed.conn_1$deviance
+#dev.explained <- (dev.null - dev.resid)/dev.null*100
+#dev.explained
+
+#consecutive visits
+nb.seed.conn_2<-glm.nb(round(cons) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log)
+summary(nb.seed.conn_2)
+
+#check residuals
+#plot(nb.seed.conn_2)
+
+#predict
+pred.2 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1),  mean.plant.dens= mean(mean.vis.plant$mean.plant.dens))
+pred.2$y <- predict(nb.seed.conn_2, pred.2, type="response")
+pred.2$se <- predict(nb.seed.conn_2, pred.2, type="response", se.fit = TRUE)$se
+
+pred.2$lower <- pred.2$y - 1.96 * pred.2$se
+pred.2$upper <- pred.2$y + 1.96 * pred.2$se
+pred.2$type<-"B) consecutive visits"
+
+#plot 
+plot_nb.2<-ggplot(pred.2, aes(x=log(seed_percent),y=y,color=factor(connectance),group=connectance))+geom_line(size=1) + 
+  theme_classic()+ theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  ylab("Consecutive visits")+ xlab("") +labs(col = "Connectance") +theme(legend.position = "none")+
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred.2) +
+  theme(panel.border = element_rect(fill=NA, color="black", size=0.5, linetype="solid"))+
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
+  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12))    
+plot_nb.2
+
+#dev.null <- nb.seed.conn_2$null.deviance
+#dev.resid <- nb.seed.conn_2$deviance
+#dev.explained <- (dev.null - dev.resid)/dev.null*100
+#dev.explained
+
+### expected pollination visits
+nb.seed.conn_3<-glm.nb(round(pvis) ~ log(seed_percent)*connectance+offset(log(mean.plant.dens)), data=mean.vis.plant,  link = log)
+summary(nb.seed.conn_3)
+
+#check residuals
+#plot(nb.seed.conn_3)
+
+#predict
+pred.3 <- expand.grid(seed_percent=seq(0.00001, 1, 0.001), connectance=c(0.25, 0.5, 0.75, 1), mean.plant.dens= mean(mean.vis.plant$mean.plant.dens))
+pred.3$y <- predict(nb.seed.conn_3, pred.3, type="response")
+pred.3$se <- predict(nb.seed.conn_3, pred.3, type="response", se.fit = TRUE)$se
+
+#calculate confidence intervals
+pred.3$lower <- pred.3$y - 1.96 * pred.3$se
+pred.3$upper <- pred.3$y + 1.96 * pred.3$se
+pred.3$type<-"C) pollination success"
+
+#plot
+plot_nb.3<-ggplot(pred.3, aes(x=log(seed_percent),y=y,color=factor(connectance),group=connectance))+geom_line(size=1) + 
+  theme_classic()+ theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  ylab("Expected number of plants pollinated")+ xlab("") +labs(col = "Connectance") +theme(legend.position = "none")+
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred.3) +
+  theme(panel.border = element_rect(fill=NA, color="black", size=0.5, linetype="solid"))+
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07", "grey20"))+
+  theme(legend.position="top", legend.title=element_text(size=12), legend.text = element_text(size=12)) 
+plot_nb.3
+
+#dev.null <- nb.seed.conn_3$null.deviance
+#dev.resid <- nb.seed.conn_3$deviance
+#dev.explained <- (dev.null - dev.resid)/dev.null*100
+
+
+Fig5_glm<-ggarrange(plot_nb.1, plot_nb.2, plot_nb.3, labels = c("a", "b", "c"), ncol = 3, common.legend = TRUE)
+annotate_figure(Fig5_glm, bottom = text_grob("plant intermixing [log]", size=14))
+
+ggsave(paste0(dirF, "Fig5_mean_logged_random_nests.png"),width=10, height = 6, units="in", dpi=600 ) 
+
+#GLM output table
+mod_tab_1<-tab_model(nb.seed.conn_1, nb.seed.conn_2, nb.seed.conn_3)
+mod_tab_1
+
+tab_model(nb.seed.conn_1)
+tab_model(nb.seed.conn_2)
+tab_model(nb.seed.conn_3)
+
+
+
+mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.links*pl.dens+(1|run), 
+                  family="nbinom2",
+                  data=vis.per.plant)
+
+
+#checks model fit
+check_model(mod.vis2)
+
+#dharma residual checks
+res_vis<- simulateResiduals(mod.vis2, 200)
+plot(res_vis)#tests if the overall distribution conforms to expectations
+testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+testResiduals(res_vis)
+testUniformity(res_vis)
+testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#consecutive visits
+mod.cons2<-glmmTMB(round(cons)~log(seed_percent)*pol.links*pl.dens+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+
+#checks model fit
+check_model(mod.cons2)
+
+#dharma residual checks
+res_vis<- simulateResiduals(mod.cons2, 200)
+plot(res_vis)#tests if the overall distribution conforms to expectations
+testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+testResiduals(res_vis)
+testUniformity(res_vis)
+testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#expected pollination visits
+mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links*pl.dens+(1|run), 
+                   family="nbinom2",
+                   data=vis.per.plant)
+
+
+#checks model fit
+check_model(mod.pvis2)
+
+#dharma residual checks
+res_vis<- simulateResiduals(mod.pvis2, 200)
+plot(res_vis)#tests if the overall distribution conforms to expectations
+testDispersion(res_vis) #tests if the simulated dispersion is equal to the observed dispersion
+testResiduals(res_vis)
+testUniformity(res_vis)
+testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
+
+
+#visitation rate
+
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(2,4,6))
+pred$run<-NA
+pred$y <- predict(mod.vis2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.vis2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+
+#plot1<-ggplot(pred,aes(x=seed_percent,y=y,color=factor(pl.dens),group=pl.dens))+
+plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))+
+  geom_line()+ylab("Visitation rate")+xlab("") +labs(col ="poll links") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  #theme(strip.text.y = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.vis2
+
+
+#plot1<-ggplot(pred,aes(x=seed_percent,y=y,color=factor(pl.dens),group=pl.dens))+
+plot.vis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))+
+  geom_line()+ylab("Visitation rate")+xlab("") +labs(col ="poll links") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  #theme(strip.text.y = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.vis2
+
+
+#consecutive visits
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(2,4,6))
+pred$run<-NA
+pred$y <- predict(mod.cons2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.cons2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+plot.cons2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))+
+  geom_line()+ylab("Consecutive visits")+xlab("") +labs(col ="poll links") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.cons2
+
+
+#expected pollination visits
+pred <- expand.grid(seed_percent=seq(0.00001,1,0.001), pl.dens=c(0.1, 0.5,0.9), pol.links=c(2,4,6))
+pred$run<-NA
+pred$y <- predict(mod.pvis2, pred, type="response",allow.new.levels=TRUE)
+pred$se <- predict(mod.pvis2, pred, type="response", se.fit = TRUE)$se
+pred$lower <- pred$y - 1.96 * pred$se
+pred$upper <- pred$y + 1.96 * pred$se
+
+plot.pvis2<-ggplot(pred,aes(x=log(seed_percent),y=y, color=factor(pol.links)),group=pol.links)+
+  theme_bw()+facet_grid(~pl.dens,labeller ="label_both", scales = "free") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), linetype = 0, alpha=0.1, data=pred)+
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))+
+  geom_line()+ylab("Expected consp. pollen transfer")+xlab("") +labs(col ="poll links") +
+  theme(axis.text = element_text(size = 12))+ theme(axis.title = element_text(size = 14)) + 
+  theme(axis.title.y = element_text(margin = margin(r = 10)))+
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+        strip.background = element_blank(),panel.border = element_rect(colour = "black"))+
+  theme(strip.text.x = element_text(size = 12, color = "black"))+
+  theme(strip.background = element_rect(color="grey0", fill="grey95", size=0.5, linetype="solid"))+
+  theme(legend.position="top")
+plot.pvis2
+
+Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE)
+annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]"))
+ggsave(paste0(dirF, "Fig_glmm_pol_dens_all_log.png"),width=8, height = 12, units="in", dpi=600 ) 
+
+
+tab_model(mod.vis2)
+tab_model(mod.cons2)
+tab_model(mod.pvis2)
+
+library("webshot")
+# first save table to html file
+tab_model(lme1, file = "plot.html")
+
+############################################################################################################
+
+

@@ -1,6 +1,6 @@
 ######################################################################################################################
-# R Code used for constructing figures 5 and 6 in:
-# Landscape composition and plant-pollinator network structure interact to influence pollination success in an individual-based mode ###
+# R Code used for constructing figures 4 and 5 in:
+# Landscape composition and pollinator traits interact to influence pollination success in an individual-based mode ###
 # Susanne Kortsch, Leonardo Saravia, Alyssa Cirtwill, Thomas Timberlake, Jane Memmott, Liam Kendall, Tomas Roslin, and Giovanni Strona
 
 #load packages
@@ -23,15 +23,17 @@ dirF<-"Figures/"
 setwd("C:/LocalData/susakort/GitHub/NLmodel_GIT/NLmodelAnalyses")
 
 #data for experiment 2: 7 habitats and random nest location
-vis_data<-read.csv("Data/NLdata_ex_2.csv", header=TRUE) #import data
-vis_data<-read.csv("Data/NLdata_ex_2_prefs.csv", header=TRUE) #import data
+vis_data<-read.csv("Data/test/NLdata_ex_2.csv", header=TRUE) #import data
+vis_data<- vis_data %>% arrange (run, pollinator_species)
+vis_data1<-read.csv("Data/NLdata_ex_2.csv", header=TRUE) #import data
+vis_data2<-read.csv("Data/NLdata_ex_2_prefs.csv", header=TRUE) #import data
+vis_data3<-read.csv("Data/NL_data_ex_2_prefs.csv", header=TRUE) #import data
 
 #test data with removing the big pollinators
 #poll.big<-which(vis.per.poll$pollinator_species>6 & vis.per.poll$pol.bm>5)
 #vis_data<-vis_data[-poll.big,]
 
-
-#vis_data<-read.csv("Data/NLdata_ex_3.csv", header=TRUE) #import data
+vis_data<-read.csv("Data/NLdata_ex_3.csv", header=TRUE) #import data
 #there are some NAs in the vis_data ex 3 file in number_visits variable
 #vis_data[which(is.na(vis_data$number_visits)),6]<-0
 
@@ -50,15 +52,19 @@ plant.l_2<- plant.l %>% inner_join(poll.l)
 #range(as.vector(plant.l_2[which(plant.l_2$pol.links==6),5]))
 
 
-#vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
-#  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), plant.links=mean(pl.links),pol.links=mean(pol.links), pl.no=mean(plant.density))
-
-
 vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
-summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), plant.links=mean(pl.links),pol.links=mean(pol.links), pl.no=mean(plant.density))
+
+
+#vis.per.plant<-plant.l_2 %>% group_by(run, seed_percent, plant_species, connectance=conn, pl.dens) %>% 
+#summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
+#vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, pollinator_species, plant_species,  connectance=conn, pl.dens, pol.bm, pol.soc) %>% 
+# summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
 
 vis.per.poll<-plant.l_2 %>% group_by(run, seed_percent, pollinator_species, plant_species,  connectance=conn, pl.dens, pol.bm, pol.soc) %>% 
-  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref), pvis_prefs = sum(pvis_prefs), pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+  summarize(number_visits = sum(number_visits), cons = sum(cons), pvis = sum(pvis), prefs = sum(plant.pref),  pl.no=mean(plant.density), plant.links=mean(pl.links),pol.links=mean(pol.links))
+
 
 ###mean visits per simulation across plants are used for the GLM 
 
@@ -166,10 +172,11 @@ mod.pvis2<-glmmTMB(round(pvis)~log(seed_percent)*pol.links+(1|run),
 #testUniformity(res_vis)
 #testZeroInflation(res_vis) #tests if there are more zeros in the data than expected from the simulations
 
+#Code to test for preferences
 
-mod.pvis_prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run), 
-                   family="nbinom2",
-                   data=vis.per.plant)
+#mod.pvis_prefs2<-glmmTMB(round(pvis_prefs)~log(seed_percent)*pol.links+(1|run), 
+#                   family="nbinom2",
+#                   data=vis.per.plant)
 
 
 ### plot the figures
@@ -268,7 +275,7 @@ plot.pvis<-ggplot(pred3,aes(x=log(seed_percent),y=y, color=factor(pol.links),lin
   scale_color_manual(values = cols)+
   scale_x_continuous(labels=c("0.00001", "0.0001", "0.001", 0.1, "1"))+
   scale_linetype_manual(values=lt)+
-  geom_line(size=1.4)+ylab("Plants pollinated based on fixed decay")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
+  geom_line(size=1.4)+ylab("Mean expected number of plants pollinated")+xlab("") +labs(col ="pollinator degree", linetype="pollinator degree") +
   theme(axis.text.y = element_text(size = 14))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.text.x = element_text(size = 14, angle=90))+ theme(axis.title = element_text(size = 14)) + 
   theme(axis.title.y = element_text(size=16,margin = margin(r = 10)))+
@@ -313,12 +320,12 @@ plot.pvis_prefs<-ggplot(pred4,aes(x=log(seed_percent),y=y, color=factor(pol.link
 plot.pvis_prefs
 
 Fig_glmm_pol<-ggarrange(plot.vis, plot.cons, plot.pvis, widths = c(6, 6, 6), labels = c("a", "b", "c"), font.label = list(size = 16, color = "black"), ncol = 3, common.legend = TRUE)
-annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing [log]", size=16))
-ggsave(paste0(dirF, "Fig4_main_text_revised.png"),width=11, height = 7, units="in", dpi=600 ) 
+annotate_figure(Fig_glmm_pol,bottom = text_grob("Plant intermixing", size=16))
+#ggsave(paste0(dirF, "Fig4_main_text_revised_xlab_corrected.png"),width=11, height = 7, units="in", dpi=600 ) 
 
 Fig_glmm_pol<-ggarrange(plot.pvis, plot.pvis_prefs, widths = c( 6, 6), labels = c("a", "b"), font.label = list(size = 16, color = "black"), ncol = 2, common.legend = TRUE)
-annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing [log]", size=16))
-ggsave(paste0(dirF, "Fig4_geo_based_perferences.png"),width=11, height = 7, units="in", dpi=600 ) 
+annotate_figure(Fig_glmm_pol,bottom = text_grob("plant intermixing", size=16))
+#ggsave(paste0(dirF, "Fig4_geo_based_perferences.png"),width=11, height = 7, units="in", dpi=600 ) 
 
 
 t.v<-tab_model(mod.vis2)
@@ -481,8 +488,8 @@ plot.pvis2
 
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), 
                              labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-4,heights=c(1,1,1.2))
-annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
-ggsave(paste0(dirF, "Fig_5_main_text_revised.png"),width=8, height = 12, units="in", dpi=600 ) 
+annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("Plant intermixing", size=14))
+ggsave(paste0(dirF, "Fig_5_main_text_revised_xlabs_corrected.png"),width=8, height = 12, units="in", dpi=600 ) 
 
 
 m1<-tab_model(mod.vis2)
@@ -646,6 +653,10 @@ tab_model(lme1, file = "plot.html")
 
 ####script from 1st submission
 ### Figure 5 and 6 in the Main Text
+
+mean.vis.plant<-vis.per.plant %>% group_by(run, seed_percent, connectance) %>% 
+  summarize(number_visits = mean(number_visits), cons = mean(cons), pvis = mean(pvis), mean.plant.dens=mean(pl.dens), mean.pl.no=mean(mean.plant.dens))
+
 
 #Figure 5: GLM figure
 #Relationship between total pollination visits and habitat structure for different levels of network connectance 

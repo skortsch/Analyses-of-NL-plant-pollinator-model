@@ -52,9 +52,9 @@ mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.bm*pol.soc+(1|run),
                   family="nbinom2",
                   data=vis.per.poll)
 
-mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.bm*pol.soc+offset(prefs)+(1|run), 
-                  family="nbinom2",
-                  data=vis.per.poll)
+#mod.vis2<-glmmTMB(round(number_visits)~log(seed_percent)*pol.bm*pol.soc+offset(prefs)+(1|run), 
+#                  family="nbinom2",
+#                  data=vis.per.poll)
 
 #checks model fit
 #check_model(mod.vis2)
@@ -208,7 +208,7 @@ plot.pvis2
 Fig_glmm_pol_dens<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), font.label = list(size = 14 ,color = "black"), nrow = 3, common.legend = TRUE)
 annotate_figure(Fig_glmm_pol_dens, bottom = text_grob("plant intermixing [log]", size=14))
 #ggsave(paste0(dirF, "Fig_glmm_pol_bm_ex_2.png"),width=8, height = 12, units="in", dpi=600 )
-ggsave(paste0(dirF, "SI_Fig_glmm_bodysizes_all_log_ex2.png"),width=10, height = 14, units="in", dpi=600 ) 
+ggsave(paste0(dirF, "SI_Fig_glmm_bodysizes_all_log_ex2_25_04_2023.png"),width=10, height = 14, units="in", dpi=600 ) 
 
 #Fig_glmm_pol_bm<-ggarrange(plot.vis2, plot.cons2, plot.pvis2, widths = c(6, 6, 6), labels = c("a", "b", "c"), nrow = 3, common.legend = TRUE, hjust=-4,heights=c(1,1,1.2))
 #annotate_figure(Fig_glmm_pol_bm, bottom = text_grob("plant intermixing [log]", size=14))
